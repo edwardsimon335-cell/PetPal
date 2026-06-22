@@ -37,7 +37,8 @@ class PixelCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       boxShadow: [
         BoxShadow(
-          color: PetPalColors.softShadow.withOpacity(selected ? 0.42 : 0.22),
+          color:
+              PetPalColors.softShadow.withValues(alpha: selected ? 0.42 : 0.22),
           blurRadius: 18,
           offset: const Offset(0, 10),
         ),

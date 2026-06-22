@@ -21,7 +21,7 @@ class SpeechBubble extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: PetPalColors.softShadow.withOpacity(0.22),
+                color: PetPalColors.softShadow.withValues(alpha: 0.22),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),

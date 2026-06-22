@@ -20,11 +20,13 @@ class PetSetupScreen extends StatefulWidget {
   });
 
   factory PetSetupScreen.upload({required PetPalController controller}) {
-    return PetSetupScreen._(controller: controller, source: PetSetupSource.upload);
+    return PetSetupScreen._(
+        controller: controller, source: PetSetupSource.upload);
   }
 
   factory PetSetupScreen.library({required PetPalController controller}) {
-    return PetSetupScreen._(controller: controller, source: PetSetupSource.library);
+    return PetSetupScreen._(
+        controller: controller, source: PetSetupSource.library);
   }
 
   final PetPalController controller;
@@ -45,9 +47,12 @@ class _PetSetupScreenState extends State<PetSetupScreen> {
   void initState() {
     super.initState();
     final role = widget.controller.selectedRole;
-    nameController = TextEditingController(text: isUpload ? 'Mochi' : role?.name ?? 'Mochi');
+    nameController =
+        TextEditingController(text: isUpload ? 'Mochi' : role?.name ?? 'Mochi');
     customTraitController = TextEditingController();
-    traits = {...(isUpload ? const <String>[] : role?.defaultTraits ?? const <String>[])};
+    traits = {
+      ...(isUpload ? const <String>[] : role?.defaultTraits ?? const <String>[])
+    };
   }
 
   @override
@@ -60,7 +65,8 @@ class _PetSetupScreenState extends State<PetSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final PresetRole role = isUpload
-        ? widget.controller.uploadedPlaceholder(widget.controller.selectedAvatarVariant ?? 0)
+        ? widget.controller
+            .uploadedPlaceholder(widget.controller.selectedAvatarVariant ?? 0)
         : widget.controller.selectedRole ?? widget.controller.roles.first;
 
     return PixelPageScaffold(
@@ -78,7 +84,8 @@ class _PetSetupScreenState extends State<PetSetupScreen> {
                   style: IconButton.styleFrom(
                     backgroundColor: const Color(0xFFF7E8C2),
                     foregroundColor: PetPalColors.bark,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -90,9 +97,10 @@ class _PetSetupScreenState extends State<PetSetupScreen> {
                 ),
                 if (isUpload)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                     decoration: BoxDecoration(
-                      color: PetPalColors.ink.withOpacity(0.82),
+                      color: PetPalColors.ink.withValues(alpha: 0.82),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Text(
@@ -153,18 +161,22 @@ class _PetSetupScreenState extends State<PetSetupScreen> {
                             hintText: 'Give me a name',
                             filled: true,
                             fillColor: PetPalColors.ink,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 13),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: Color(0xFF6B4A28), width: 2),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFF6B4A28), width: 2),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: Color(0xFF6B4A28), width: 2),
+                              borderSide: const BorderSide(
+                                  color: Color(0xFF6B4A28), width: 2),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: PetPalColors.honey, width: 2),
+                              borderSide: const BorderSide(
+                                  color: PetPalColors.honey, width: 2),
                             ),
                           ),
                         ),
@@ -201,28 +213,34 @@ class _PetSetupScreenState extends State<PetSetupScreen> {
                           maxLines: 3,
                           maxLength: 300,
                           decoration: InputDecoration(
-                            hintText: 'Optional: describe a special personality detail.',
-                            counterStyle: const TextStyle(color: Color(0xFFB09367)),
+                            hintText:
+                                'Optional: describe a special personality detail.',
+                            counterStyle:
+                                const TextStyle(color: Color(0xFFB09367)),
                             filled: true,
                             fillColor: const Color(0xFFFFFAF0),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(color: Color(0xFFD8B87F)),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFD8B87F)),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(color: Color(0xFFD8B87F)),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFD8B87F)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
-                              borderSide: const BorderSide(color: PetPalColors.honey, width: 2),
+                              borderSide: const BorderSide(
+                                  color: PetPalColors.honey, width: 2),
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
                         PixelButton(
                           label: 'Enter My Room',
-                          icon: const Icon(Icons.chevron_right_rounded, size: 22),
+                          icon:
+                              const Icon(Icons.chevron_right_rounded, size: 22),
                           enabled: traits.length >= 2,
                           onPressed: traits.length < 2 ? null : _enterRoom,
                         ),
@@ -254,11 +272,13 @@ class _PetSetupScreenState extends State<PetSetupScreen> {
       widget.controller.createUploadedPet(
         name: nameController.text,
         traits: selectedTraits,
+        specialPersonalityDetail: customTraitController.text,
       );
     } else {
       widget.controller.createPresetPet(
         name: nameController.text,
         traits: selectedTraits,
+        specialPersonalityDetail: customTraitController.text,
       );
     }
     Navigator.of(context).pushAndRemoveUntil(

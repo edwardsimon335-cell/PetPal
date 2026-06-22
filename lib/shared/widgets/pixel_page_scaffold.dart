@@ -40,8 +40,8 @@ class PixelPageScaffold extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.white.withOpacity(0.18),
-                      PetPalColors.ink.withOpacity(0.16),
+                      Colors.white.withValues(alpha: 0.18),
+                      PetPalColors.ink.withValues(alpha: 0.16),
                     ],
                   ),
             ),

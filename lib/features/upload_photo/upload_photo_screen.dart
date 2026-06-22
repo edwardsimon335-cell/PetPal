@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../app/petpal_controller.dart';
 import '../../core/theme/petpal_theme.dart';
 import '../../shared/widgets/pixel_button.dart';
 import '../../shared/widgets/pixel_card.dart';
 import '../../shared/widgets/pixel_page_scaffold.dart';
+import 'models/uploaded_pet_photo.dart';
 import 'photo_preview_screen.dart';
 
-class UploadPhotoScreen extends StatelessWidget {
+class UploadPhotoScreen extends StatefulWidget {
   const UploadPhotoScreen({required this.controller, super.key});
 
   final PetPalController controller;
+
+  @override
+  State<UploadPhotoScreen> createState() => _UploadPhotoScreenState();
+}
+
+class _UploadPhotoScreenState extends State<UploadPhotoScreen> {
+  final ImagePicker picker = ImagePicker();
+
+  bool picking = false;
+  String? pickerError;
 
   @override
   Widget build(BuildContext context) {
@@ -33,15 +46,17 @@ class UploadPhotoScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFFF4D9A6),
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: const Color(0xFFE0B878), width: 2),
+                    border:
+                        Border.all(color: const Color(0xFFE0B878), width: 2),
                   ),
-                  child: Stack(
+                  child: const Stack(
                     children: [
-                      const Center(
+                      Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.photo_camera_outlined, size: 66, color: Color(0xFFB07F3F)),
+                            Icon(Icons.photo_camera_outlined,
+                                size: 66, color: Color(0xFFB07F3F)),
                             SizedBox(height: 12),
                             Text(
                               'Place your pet inside the frame',
@@ -55,10 +70,11 @@ class UploadPhotoScreen extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const _FocusCorner(top: 18, left: 18),
-                      const _FocusCorner(top: 18, right: 18, flipX: true),
-                      const _FocusCorner(bottom: 18, left: 18, flipY: true),
-                      const _FocusCorner(bottom: 18, right: 18, flipX: true, flipY: true),
+                      _FocusCorner(top: 18, left: 18),
+                      _FocusCorner(top: 18, right: 18, flipX: true),
+                      _FocusCorner(bottom: 18, left: 18, flipY: true),
+                      _FocusCorner(
+                          bottom: 18, right: 18, flipX: true, flipY: true),
                     ],
                   ),
                 ),
@@ -75,6 +91,18 @@ class UploadPhotoScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              if (pickerError != null) ...[
+                Text(
+                  pickerError!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFB85032),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               Row(
                 children: [
                   SizedBox(
@@ -83,7 +111,8 @@ class UploadPhotoScreen extends StatelessWidget {
                       label: 'Album',
                       secondary: true,
                       icon: const Icon(Icons.photo_library_outlined, size: 19),
-                      onPressed: () => _goPreview(context),
+                      enabled: !picking,
+                      onPressed: () => _pickPhoto(PetPhotoSource.album),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -91,7 +120,8 @@ class UploadPhotoScreen extends StatelessWidget {
                     child: PixelButton(
                       label: 'Take Photo',
                       icon: const Icon(Icons.camera_alt_outlined, size: 22),
-                      onPressed: () => _goPreview(context),
+                      enabled: !picking,
+                      onPressed: () => _pickPhoto(PetPhotoSource.camera),
                     ),
                   ),
                 ],
@@ -103,10 +133,46 @@ class UploadPhotoScreen extends StatelessWidget {
     );
   }
 
-  void _goPreview(BuildContext context) {
+  Future<void> _pickPhoto(PetPhotoSource source) async {
+    setState(() {
+      picking = true;
+      pickerError = null;
+    });
+
+    try {
+      final pickedFile = await picker.pickImage(
+        source: source == PetPhotoSource.album
+            ? ImageSource.gallery
+            : ImageSource.camera,
+        maxWidth: 1800,
+        imageQuality: 92,
+      );
+      if (!mounted) return;
+      if (pickedFile == null) {
+        setState(() => picking = false);
+        return;
+      }
+      _goPreview(
+        context,
+        UploadedPetPhoto(file: pickedFile, source: source),
+      );
+    } on PlatformException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        picking = false;
+        pickerError = error.message ?? 'Could not open photo picker.';
+      });
+    }
+  }
+
+  void _goPreview(BuildContext context, UploadedPetPhoto photo) {
+    setState(() => picking = false);
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => PhotoPreviewScreen(controller: controller),
+        builder: (_) => PhotoPreviewScreen(
+          controller: widget.controller,
+          photo: photo,
+        ),
       ),
     );
   }
@@ -133,11 +199,13 @@ class _FlowTopBar extends StatelessWidget {
           style: IconButton.styleFrom(
             backgroundColor: const Color(0xFFF7E8C2),
             foregroundColor: PetPalColors.bark,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
+        Expanded(
+            child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
         Row(
           children: List.generate(3, (index) {
             return Container(
@@ -145,7 +213,9 @@ class _FlowTopBar extends StatelessWidget {
               height: 6,
               margin: const EdgeInsets.only(left: 5),
               decoration: BoxDecoration(
-                color: index < activeSteps ? PetPalColors.honey : const Color(0xFFDCC59A),
+                color: index < activeSteps
+                    ? PetPalColors.honey
+                    : const Color(0xFFDCC59A),
                 borderRadius: BorderRadius.circular(3),
               ),
             );

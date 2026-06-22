@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/petpal_theme.dart';
 import '../features/onboarding/welcome_screen.dart';
+import '../features/pet_room/pet_room_screen.dart';
 import 'petpal_controller.dart';
 
 class PetPalApp extends StatefulWidget {
@@ -18,6 +19,7 @@ class _PetPalAppState extends State<PetPalApp> {
   void initState() {
     super.initState();
     controller = PetPalController();
+    controller.restore();
   }
 
   @override
@@ -32,7 +34,20 @@ class _PetPalAppState extends State<PetPalApp> {
       title: 'PetPal',
       debugShowCheckedModeBanner: false,
       theme: PetPalTheme.light(),
-      home: WelcomeScreen(controller: controller),
+      home: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) {
+          if (!controller.isReady) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (controller.currentPet != null) {
+            return PetRoomScreen(controller: controller);
+          }
+          return WelcomeScreen(controller: controller);
+        },
+      ),
     );
   }
 }

@@ -42,7 +42,8 @@ class PetRoomScreen extends StatelessWidget {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => PetProfileScreen(controller: controller),
+                              builder: (_) =>
+                                  PetProfileScreen(controller: controller),
                             ),
                           );
                         },
@@ -52,10 +53,12 @@ class PetRoomScreen extends StatelessWidget {
                               width: 46,
                               height: 46,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFBECCF).withOpacity(0.14),
+                                color: const Color(0xFFFBECCF)
+                                    .withValues(alpha: 0.14),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Icon(Icons.pets_rounded, color: Color(0xFFF3E4C4)),
+                              child: const Icon(Icons.pets_rounded,
+                                  color: Color(0xFFF3E4C4)),
                             ),
                             const SizedBox(width: 9),
                             Expanded(
@@ -86,7 +89,8 @@ class PetRoomScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.edit_outlined, size: 17, color: Color(0xFFF3E4C4)),
+                            const Icon(Icons.edit_outlined,
+                                size: 17, color: Color(0xFFF3E4C4)),
                           ],
                         ),
                       ),
@@ -96,13 +100,15 @@ class PetRoomScreen extends StatelessWidget {
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => SettingsScreen(controller: controller),
+                            builder: (_) =>
+                                SettingsScreen(controller: controller),
                           ),
                         );
                       },
                       icon: const Icon(Icons.settings_outlined),
                       style: IconButton.styleFrom(
-                        backgroundColor: PetPalColors.ink.withOpacity(0.78),
+                        backgroundColor:
+                            PetPalColors.ink.withValues(alpha: 0.78),
                         foregroundColor: const Color(0xFFF3E4C4),
                       ),
                     ),
@@ -115,11 +121,20 @@ class PetRoomScreen extends StatelessWidget {
                 width: 172,
                 child: Column(
                   children: [
-                    PetStatusBar(value: pet.mood, color: PetPalColors.heart, icon: Icons.favorite_rounded),
+                    PetStatusBar(
+                        value: pet.mood,
+                        color: PetPalColors.heart,
+                        icon: Icons.favorite_rounded),
                     const SizedBox(height: 9),
-                    PetStatusBar(value: pet.hunger, color: PetPalColors.honey, icon: Icons.set_meal_rounded),
+                    PetStatusBar(
+                        value: pet.hunger,
+                        color: PetPalColors.honey,
+                        icon: Icons.set_meal_rounded),
                     const SizedBox(height: 9),
-                    PetStatusBar(value: pet.cleanliness, color: PetPalColors.blue, icon: Icons.auto_awesome_rounded),
+                    PetStatusBar(
+                        value: pet.cleanliness,
+                        color: PetPalColors.blue,
+                        icon: Icons.auto_awesome_rounded),
                   ],
                 ),
               ),
@@ -211,11 +226,30 @@ class _InteractionBar extends StatelessWidget {
   }
 }
 
-class _ChatBar extends StatelessWidget {
+class _ChatBar extends StatefulWidget {
   const _ChatBar({required this.controller, required this.petName});
 
   final PetPalController controller;
   final String petName;
+
+  @override
+  State<_ChatBar> createState() => _ChatBarState();
+}
+
+class _ChatBarState extends State<_ChatBar> {
+  late final TextEditingController messageController;
+
+  @override
+  void initState() {
+    super.initState();
+    messageController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    messageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -227,7 +261,7 @@ class _ChatBar extends StatelessWidget {
             label: '',
             secondary: true,
             icon: const Icon(Icons.sync_rounded, size: 21),
-            onPressed: controller.toggleChatMode,
+            onPressed: widget.controller.toggleChatMode,
             height: 50,
           ),
         ),
@@ -236,17 +270,26 @@ class _ChatBar extends StatelessWidget {
           child: Container(
             height: 50,
             alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
               color: const Color(0xFFFBF2DA),
               borderRadius: BorderRadius.circular(25),
               border: Border.all(color: PetPalColors.line, width: 2),
             ),
-            child: Text(
-              'Say something to $petName',
-              overflow: TextOverflow.ellipsis,
+            child: TextField(
+              controller: messageController,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _send(),
+              decoration: InputDecoration.collapsed(
+                hintText: 'Say something to ${widget.petName}',
+                hintStyle: const TextStyle(
+                  color: Color(0xFFA8895E),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                ),
+              ),
               style: const TextStyle(
-                color: Color(0xFFA8895E),
+                color: PetPalColors.bark,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0,
               ),
@@ -259,11 +302,18 @@ class _ChatBar extends StatelessWidget {
           child: PixelButton(
             label: '',
             icon: const Icon(Icons.arrow_upward_rounded, size: 23),
-            onPressed: controller.sendMockMessage,
+            onPressed: _send,
             height: 50,
           ),
         ),
       ],
     );
+  }
+
+  void _send() {
+    final text = messageController.text.trim();
+    if (text.isEmpty) return;
+    widget.controller.sendMockMessage(text);
+    messageController.clear();
   }
 }

@@ -24,7 +24,7 @@ class PetStatusBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(7),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.12),
+                color: Colors.black.withValues(alpha: 0.12),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),

@@ -31,7 +31,8 @@ class CharacterLibraryScreen extends StatelessWidget {
                     style: IconButton.styleFrom(
                       backgroundColor: const Color(0xFFF7E8C2),
                       foregroundColor: PetPalColors.bark,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -62,7 +63,8 @@ class CharacterLibraryScreen extends StatelessWidget {
                     return GridView.builder(
                       padding: EdgeInsets.zero,
                       itemCount: controller.roles.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
@@ -93,7 +95,8 @@ class CharacterLibraryScreen extends StatelessWidget {
                         : () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => PetSetupScreen.library(controller: controller),
+                                builder: (_) => PetSetupScreen.library(
+                                    controller: controller),
                               ),
                             );
                           },

@@ -43,7 +43,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   left: 8,
                   child: IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.chevron_left_rounded, color: Color(0xFFF3E4C4)),
+                    icon: const Icon(Icons.chevron_left_rounded,
+                        color: Color(0xFFF3E4C4)),
                   ),
                 ),
                 const Text(
@@ -83,7 +84,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                _SettingsPanel(
+                const _SettingsPanel(
                   children: [
                     _ActionRow(label: 'Add to Home Screen'),
                   ],
@@ -96,7 +97,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _SwitchRow(
                         label: entry.key,
                         value: entry.value,
-                        onChanged: (value) => setState(() => switches[entry.key] = value),
+                        onChanged: (value) =>
+                            setState(() => switches[entry.key] = value),
                       ),
                   ],
                 ),
@@ -108,7 +110,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _SwitchRow(
                         label: entry.key,
                         value: entry.value,
-                        onChanged: (value) => setState(() => switches[entry.key] = value),
+                        onChanged: (value) =>
+                            setState(() => switches[entry.key] = value),
                       ),
                   ],
                 ),
@@ -166,11 +169,12 @@ class _WidgetPreview extends StatelessWidget {
       height: 126,
       padding: EdgeInsets.all(compact ? 14 : 16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFFF3E2B8), Color(0xFFE3C184)]),
+        gradient: const LinearGradient(
+            colors: [Color(0xFFF3E2B8), Color(0xFFE3C184)]),
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.22),
+            color: Colors.black.withValues(alpha: 0.22),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -180,24 +184,32 @@ class _WidgetPreview extends StatelessWidget {
           ? Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.pets_rounded, color: PetPalColors.bark, size: 32),
+                const Icon(Icons.pets_rounded,
+                    color: PetPalColors.bark, size: 32),
                 const SizedBox(height: 8),
-                Text(title, overflow: TextOverflow.ellipsis, style: _titleStyle),
-                Text(subtitle, overflow: TextOverflow.ellipsis, style: _subtitleStyle),
+                Text(title,
+                    overflow: TextOverflow.ellipsis, style: _titleStyle),
+                Text(subtitle,
+                    overflow: TextOverflow.ellipsis, style: _subtitleStyle),
               ],
             )
           : Row(
               children: [
-                const Icon(Icons.pets_rounded, color: PetPalColors.bark, size: 42),
+                const Icon(Icons.pets_rounded,
+                    color: PetPalColors.bark, size: 42),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, overflow: TextOverflow.ellipsis, style: _titleStyle),
+                      Text(title,
+                          overflow: TextOverflow.ellipsis, style: _titleStyle),
                       const SizedBox(height: 4),
-                      Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: _subtitleStyle),
+                      Text(subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: _subtitleStyle),
                       const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(4),
@@ -205,7 +217,8 @@ class _WidgetPreview extends StatelessWidget {
                           value: 0.72,
                           minHeight: 6,
                           backgroundColor: Color(0x335B4225),
-                          valueColor: AlwaysStoppedAnimation<Color>(PetPalColors.heart),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(PetPalColors.heart),
                         ),
                       ),
                     ],
@@ -291,12 +304,15 @@ class _SwitchRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: Color(0xFFEAD9BC), fontWeight: FontWeight.w800, letterSpacing: 0),
+              style: const TextStyle(
+                  color: Color(0xFFEAD9BC),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0),
             ),
           ),
           Switch(
             value: value,
-            activeColor: PetPalColors.honey,
+            activeThumbColor: PetPalColors.honey,
             onChanged: onChanged,
           ),
         ],
@@ -319,7 +335,10 @@ class _ActionRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: Color(0xFFEAD9BC), fontWeight: FontWeight.w800, letterSpacing: 0),
+              style: const TextStyle(
+                  color: Color(0xFFEAD9BC),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0),
             ),
           ),
           const Icon(Icons.chevron_right_rounded, color: Color(0xFF8C7252)),
@@ -344,12 +363,18 @@ class _ValueRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: Color(0xFFEAD9BC), fontWeight: FontWeight.w800, letterSpacing: 0),
+              style: const TextStyle(
+                  color: Color(0xFFEAD9BC),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0),
             ),
           ),
           Text(
             value,
-            style: const TextStyle(color: Color(0xFFA98E6A), fontWeight: FontWeight.w800, letterSpacing: 0),
+            style: const TextStyle(
+                color: Color(0xFFA98E6A),
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0),
           ),
         ],
       ),

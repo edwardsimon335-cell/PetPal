@@ -35,7 +35,8 @@ class MockPetRepository {
         id: 'biscuit',
         name: 'Biscuit',
         species: 'Corgi',
-        description: 'A bright little dog who believes every sound is snack news.',
+        description:
+            'A bright little dog who believes every sound is snack news.',
         defaultTraits: ['Playful', 'Chatty', 'Foodie'],
         body: Color(0xFFB5793F),
         shade: Color(0xFF86521F),
@@ -48,7 +49,7 @@ class MockPetRepository {
         name: 'Shadow',
         species: 'Black Cat',
         description: 'Cool, quiet, and secretly very attached.',
-        defaultTraits: ['Cool', 'Sassy', 'Quiet'],
+        defaultTraits: ['Cool', 'Sassy', 'Shy'],
         body: Color(0xFF3C372F),
         shade: Color(0xFF221D17),
         eye: Color(0xFFF4C430),
@@ -60,7 +61,7 @@ class MockPetRepository {
         name: 'Snowball',
         species: 'White Rabbit',
         description: 'Gentle, shy, and fond of quiet mornings.',
-        defaultTraits: ['Gentle', 'Shy', 'Sweet'],
+        defaultTraits: ['Gentle', 'Shy', 'Affectionate'],
         body: Color(0xFFF4ECE0),
         shade: Color(0xFFDAC9B1),
         eye: Color(0xFF9A6B8A),
@@ -82,6 +83,13 @@ class MockPetRepository {
     ];
   }
 
+  PresetRole? roleById(String id) {
+    for (final role in presetRoles()) {
+      if (role.id == id) return role;
+    }
+    return null;
+  }
+
   PresetRole uploadedPlaceholder(int variant) {
     final colors = [
       const Color(0xFFD18A4C),
@@ -97,7 +105,7 @@ class MockPetRepository {
       description: 'A temporary generated avatar from the upload flow.',
       defaultTraits: const [],
       body: color,
-      shade: Color.alphaBlend(Colors.black.withOpacity(0.18), color),
+      shade: Color.alphaBlend(Colors.black.withValues(alpha: 0.18), color),
       eye: const Color(0xFF241A12),
       accent: const Color(0xFFE09A9A),
       chest: const Color(0xFFF3E6C8),

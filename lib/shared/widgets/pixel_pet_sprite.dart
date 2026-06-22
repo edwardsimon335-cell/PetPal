@@ -43,7 +43,8 @@ class _PixelPetPainter extends CustomPainter {
     final chest = Paint()..color = role.chest ?? const Color(0xFFF3E6C8);
 
     RRect rr(double x, double y, double w, double h, double r) {
-      return RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), Radius.circular(r));
+      return RRect.fromRectAndRadius(
+          Rect.fromLTWH(x, y, w, h), Radius.circular(r));
     }
 
     canvas.drawRRect(rr(36, 128, 24, 16, 8), shade);
@@ -102,8 +103,10 @@ class _PixelPetPainter extends CustomPainter {
       canvas.drawRRect(rr(34, 106, 15, 6, 3), shade);
     }
 
-    canvas.drawRRect(rr(35, 70, 11, 6, 3), Paint()..color = const Color(0x66F0A0A0));
-    canvas.drawRRect(rr(82, 70, 11, 6, 3), Paint()..color = const Color(0x66F0A0A0));
+    canvas.drawRRect(
+        rr(35, 70, 11, 6, 3), Paint()..color = const Color(0x66F0A0A0));
+    canvas.drawRRect(
+        rr(82, 70, 11, 6, 3), Paint()..color = const Color(0x66F0A0A0));
     canvas.drawRRect(rr(42, 52, 18, 23, 9), eye);
     canvas.drawRRect(rr(68, 52, 18, 23, 9), eye);
     canvas.drawRRect(rr(46, 57, 9, 11, 4), Paint()..color = role.eye);
@@ -124,8 +127,8 @@ class _PixelPetPainter extends CustomPainter {
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-    canvas.drawArc(Rect.fromLTWH(52, 80, 12, 8), 0.1, 1.8, false, mouth);
-    canvas.drawArc(Rect.fromLTWH(64, 80, 12, 8), 1.2, 1.8, false, mouth);
+    canvas.drawArc(const Rect.fromLTWH(52, 80, 12, 8), 0.1, 1.8, false, mouth);
+    canvas.drawArc(const Rect.fromLTWH(64, 80, 12, 8), 1.2, 1.8, false, mouth);
     canvas.restore();
   }
 

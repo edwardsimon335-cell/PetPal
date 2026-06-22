@@ -7,12 +7,21 @@ import '../../shared/widgets/pixel_card.dart';
 import '../../shared/widgets/pixel_page_scaffold.dart';
 import '../../shared/widgets/pixel_pet_sprite.dart';
 import '../pet_creation/pet_setup_screen.dart';
+import 'models/uploaded_pet_photo.dart';
+import 'services/avatar_generation_service.dart';
 import 'upload_photo_screen.dart';
 
 class AvatarOptionsScreen extends StatefulWidget {
-  const AvatarOptionsScreen({required this.controller, super.key});
+  const AvatarOptionsScreen({
+    required this.controller,
+    required this.photo,
+    this.generationService = const MockAvatarGenerationService(),
+    super.key,
+  });
 
   final PetPalController controller;
+  final UploadedPetPhoto photo;
+  final AvatarGenerationService generationService;
 
   @override
   State<AvatarOptionsScreen> createState() => _AvatarOptionsScreenState();
@@ -20,6 +29,18 @@ class AvatarOptionsScreen extends StatefulWidget {
 
 class _AvatarOptionsScreenState extends State<AvatarOptionsScreen> {
   int regenerateLeft = 2;
+  int generationRound = 0;
+  bool loading = true;
+  String? generationError;
+  List<AvatarCandidate> candidates = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.setUploadPhotoPath(widget.photo.file.path);
+    widget.controller.clearGeneratedAvatarSelection();
+    _generateOptions();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,65 +70,22 @@ class _AvatarOptionsScreenState extends State<AvatarOptionsScreen> {
               ),
               const SizedBox(height: 14),
               Expanded(
-                child: AnimatedBuilder(
-                  animation: controller,
-                  builder: (context, _) {
-                    return GridView.builder(
-                      padding: EdgeInsets.zero,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.94,
-                      ),
-                      itemCount: 4,
-                      itemBuilder: (context, index) {
-                        final selected = controller.selectedAvatarVariant == index;
-                        return PixelCard(
-                          dark: true,
-                          selected: selected,
-                          onTap: () => controller.selectGeneratedAvatar(index),
-                          padding: EdgeInsets.zero,
-                          child: Stack(
-                            children: [
-                              Center(
-                                child: PixelPetSprite(
-                                  role: controller.uploadedPlaceholder(index),
-                                  variant: index,
-                                  size: 112,
-                                ),
-                              ),
-                              Positioned(
-                                top: 10,
-                                left: 10,
-                                child: _IndexBadge(number: index + 1),
-                              ),
-                              if (selected)
-                                const Positioned(
-                                  top: 10,
-                                  right: 10,
-                                  child: Icon(Icons.check_circle_rounded, color: PetPalColors.honey),
-                                ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
+                child: _buildCandidateArea(controller),
               ),
               const SizedBox(height: 12),
               PixelButton(
                 label: 'Regenerate All ($regenerateLeft left)',
                 secondary: true,
                 icon: const Icon(Icons.refresh_rounded, size: 20),
-                enabled: regenerateLeft > 0,
+                enabled: regenerateLeft > 0 && !loading,
                 onPressed: regenerateLeft > 0
                     ? () {
                         setState(() {
                           regenerateLeft -= 1;
+                          generationRound += 1;
                         });
+                        controller.clearGeneratedAvatarSelection();
+                        _generateOptions();
                       }
                     : null,
               ),
@@ -124,7 +102,8 @@ class _AvatarOptionsScreenState extends State<AvatarOptionsScreen> {
                         : () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => PetSetupScreen.upload(controller: controller),
+                                builder: (_) => PetSetupScreen.upload(
+                                    controller: controller),
                               ),
                             );
                           },
@@ -136,6 +115,120 @@ class _AvatarOptionsScreenState extends State<AvatarOptionsScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildCandidateArea(PetPalController controller) {
+    if (loading) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: PetPalColors.honey),
+            SizedBox(height: 14),
+            Text(
+              'Creating pixel options...',
+              style: TextStyle(
+                color: Color(0xFF9A7544),
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (generationError != null) {
+      return Center(
+        child: Text(
+          generationError!,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Color(0xFFB85032),
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+        ),
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        return GridView.builder(
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.94,
+          ),
+          itemCount: candidates.length,
+          itemBuilder: (context, index) {
+            final candidate = candidates[index];
+            final selected =
+                controller.selectedAvatarVariant == candidate.variant;
+            return PixelCard(
+              dark: true,
+              selected: selected,
+              onTap: () => controller.selectGeneratedAvatar(candidate.variant),
+              padding: EdgeInsets.zero,
+              child: Stack(
+                children: [
+                  Center(
+                    child: PixelPetSprite(
+                      role: controller.uploadedPlaceholder(candidate.variant),
+                      variant: candidate.variant,
+                      size: 112,
+                    ),
+                  ),
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: _IndexBadge(number: index + 1),
+                  ),
+                  if (selected)
+                    const Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Icon(
+                        Icons.check_circle_rounded,
+                        color: PetPalColors.honey,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _generateOptions() async {
+    setState(() {
+      loading = true;
+      generationError = null;
+    });
+
+    try {
+      final generated = await widget.generationService.generateOptions(
+        photo: widget.photo,
+        generationRound: generationRound,
+      );
+      if (!mounted) return;
+      setState(() {
+        candidates = generated;
+        loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        loading = false;
+        generationError = 'Could not create options. Please try again.';
+      });
+    }
   }
 }
 

@@ -21,7 +21,8 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   @override
   void initState() {
     super.initState();
-    nameController = TextEditingController(text: widget.controller.currentPet?.name ?? '');
+    nameController =
+        TextEditingController(text: widget.controller.currentPet?.name ?? '');
   }
 
   @override
@@ -47,14 +48,19 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
           ),
           child: Column(
             children: [
-              _DarkTopBar(title: 'Pet Profile', onBack: () => Navigator.of(context).pop()),
+              _DarkTopBar(
+                  title: 'Pet Profile',
+                  onBack: () => Navigator.of(context).pop()),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(18, 8, 18, 34),
                   children: [
                     Column(
                       children: [
-                        PixelPetSprite(role: pet.role, variant: pet.avatarVariant, size: 112),
+                        PixelPetSprite(
+                            role: pet.role,
+                            variant: pet.avatarVariant,
+                            size: 112),
                         const SizedBox(height: 8),
                         Text(
                           pet.name,
@@ -66,9 +72,9 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Together for 12 days',
-                          style: TextStyle(
+                        Text(
+                          _togetherText(pet.createdAt),
+                          style: const TextStyle(
                             color: Color(0xFFA98E6A),
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0,
@@ -77,7 +83,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    _SectionTitle('Basic Info'),
+                    const _SectionTitle('Basic Info'),
                     _DarkPanel(
                       children: [
                         _InfoRow(
@@ -87,7 +93,8 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                             onPressed: () {
                               setState(() => editing = !editing);
                             },
-                            icon: const Icon(Icons.edit_outlined, color: Color(0xFFEAD9BC), size: 18),
+                            icon: const Icon(Icons.edit_outlined,
+                                color: Color(0xFFEAD9BC), size: 18),
                           ),
                         ),
                         if (editing)
@@ -95,7 +102,8 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                             padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
                             child: TextField(
                               controller: nameController,
-                              style: const TextStyle(color: Color(0xFFFBECCF), letterSpacing: 0),
+                              style: const TextStyle(
+                                  color: Color(0xFFFBECCF), letterSpacing: 0),
                               decoration: const InputDecoration(
                                 isDense: true,
                                 hintText: 'New name',
@@ -108,7 +116,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                       ],
                     ),
                     const SizedBox(height: 18),
-                    _SectionTitle('Personality'),
+                    const _SectionTitle('Personality'),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -126,13 +134,33 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                           ),
                       ],
                     ),
+                    if (pet.specialPersonalityDetail.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _DarkPanel(
+                        children: [
+                          _InfoRow(
+                            label: 'Detail',
+                            value: pet.specialPersonalityDetail,
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 18),
-                    _SectionTitle('Status'),
+                    const _SectionTitle('Status'),
                     _DarkPanel(
                       children: [
-                        _Meter(label: 'Mood', value: pet.mood, color: PetPalColors.heart),
-                        _Meter(label: 'Hunger', value: pet.hunger, color: PetPalColors.honey),
-                        _Meter(label: 'Clean', value: pet.cleanliness, color: PetPalColors.blue),
+                        _Meter(
+                            label: 'Mood',
+                            value: pet.mood,
+                            color: PetPalColors.heart),
+                        _Meter(
+                            label: 'Hunger',
+                            value: pet.hunger,
+                            color: PetPalColors.honey),
+                        _Meter(
+                            label: 'Clean',
+                            value: pet.cleanliness,
+                            color: PetPalColors.blue),
                       ],
                     ),
                   ],
@@ -148,6 +176,11 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   void _commitName(String value) {
     widget.controller.updateName(value);
     setState(() => editing = false);
+  }
+
+  String _togetherText(DateTime createdAt) {
+    final days = DateTime.now().difference(createdAt).inDays + 1;
+    return 'Together for $days ${days == 1 ? 'day' : 'days'}';
   }
 }
 
@@ -168,7 +201,8 @@ class _DarkTopBar extends StatelessWidget {
             left: 8,
             child: IconButton(
               onPressed: onBack,
-              icon: const Icon(Icons.chevron_left_rounded, color: Color(0xFFF3E4C4)),
+              icon: const Icon(Icons.chevron_left_rounded,
+                  color: Color(0xFFF3E4C4)),
             ),
           ),
           Text(
@@ -283,7 +317,10 @@ class _Meter extends StatelessWidget {
             width: 54,
             child: Text(
               label,
-              style: const TextStyle(color: Color(0xFFCBB697), fontWeight: FontWeight.w700, letterSpacing: 0),
+              style: const TextStyle(
+                  color: Color(0xFFCBB697),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0),
             ),
           ),
           Expanded(
@@ -303,7 +340,10 @@ class _Meter extends StatelessWidget {
             child: Text(
               '$value',
               textAlign: TextAlign.right,
-              style: const TextStyle(color: Color(0xFFE0C79F), fontWeight: FontWeight.w800, letterSpacing: 0),
+              style: const TextStyle(
+                  color: Color(0xFFE0C79F),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0),
             ),
           ),
         ],

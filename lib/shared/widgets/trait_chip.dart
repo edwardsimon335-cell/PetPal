@@ -21,13 +21,15 @@ class TraitChip extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
-          backgroundColor: selected ? const Color(0xFFFBE2BC) : const Color(0xFFF7ECCA),
+          backgroundColor:
+              selected ? const Color(0xFFFBE2BC) : const Color(0xFFF7ECCA),
           foregroundColor: selected ? PetPalColors.honey : PetPalColors.cocoa,
           side: BorderSide(
             color: selected ? PetPalColors.honey : PetPalColors.line,
             width: 2,
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w800,

@@ -31,7 +31,7 @@ class WelcomeScreen extends StatelessWidget {
                 border: Border.all(color: PetPalColors.line, width: 2),
                 boxShadow: [
                   BoxShadow(
-                    color: PetPalColors.softShadow.withOpacity(0.25),
+                    color: PetPalColors.softShadow.withValues(alpha: 0.25),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                   ),
@@ -66,7 +66,9 @@ class WelcomeScreen extends StatelessWidget {
             const SizedBox(height: 14),
             Row(
               children: [
-                Expanded(child: Container(height: 2, color: const Color(0x887C5A30))),
+                Expanded(
+                    child:
+                        Container(height: 2, color: const Color(0x887C5A30))),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
@@ -78,7 +80,9 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                Expanded(child: Container(height: 2, color: const Color(0x887C5A30))),
+                Expanded(
+                    child:
+                        Container(height: 2, color: const Color(0x887C5A30))),
               ],
             ),
             const SizedBox(height: 14),
@@ -89,7 +93,8 @@ class WelcomeScreen extends StatelessWidget {
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => CharacterLibraryScreen(controller: controller),
+                    builder: (_) =>
+                        CharacterLibraryScreen(controller: controller),
                   ),
                 );
               },
@@ -152,7 +157,8 @@ class _EntryCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: PetPalColors.cocoa, size: 28),
+          const Icon(Icons.chevron_right_rounded,
+              color: PetPalColors.cocoa, size: 28),
         ],
       ),
     );

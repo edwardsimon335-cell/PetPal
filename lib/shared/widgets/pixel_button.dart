@@ -38,11 +38,12 @@ class PixelButton extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: background,
           borderRadius: BorderRadius.circular(16),
-          border: secondary ? Border.all(color: PetPalColors.line, width: 2) : null,
+          border:
+              secondary ? Border.all(color: PetPalColors.line, width: 2) : null,
           boxShadow: active
               ? [
                   BoxShadow(
-                    color: PetPalColors.softShadow.withOpacity(0.34),
+                    color: PetPalColors.softShadow.withValues(alpha: 0.34),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   ),

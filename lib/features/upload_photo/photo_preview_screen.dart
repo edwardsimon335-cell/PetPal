@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../app/petpal_controller.dart';
@@ -6,12 +8,18 @@ import '../../shared/widgets/pixel_button.dart';
 import '../../shared/widgets/pixel_card.dart';
 import '../../shared/widgets/pixel_page_scaffold.dart';
 import 'avatar_options_screen.dart';
+import 'models/uploaded_pet_photo.dart';
 import 'upload_photo_screen.dart';
 
 class PhotoPreviewScreen extends StatelessWidget {
-  const PhotoPreviewScreen({required this.controller, super.key});
+  const PhotoPreviewScreen({
+    required this.controller,
+    required this.photo,
+    super.key,
+  });
 
   final PetPalController controller;
+  final UploadedPetPhoto photo;
 
   @override
   Widget build(BuildContext context) {
@@ -34,22 +42,35 @@ class PhotoPreviewScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFFF4D9A6),
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: const Color(0xFFE0B878), width: 2),
+                    border:
+                        Border.all(color: const Color(0xFFE0B878), width: 2),
                   ),
                   child: Stack(
                     children: [
-                      const Center(
-                        child: Icon(
-                          Icons.pets_rounded,
-                          color: Color(0xFFC08A48),
-                          size: 82,
+                      Positioned.fill(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Image.file(
+                            File(photo.file.path),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Icon(
+                                  Icons.pets_rounded,
+                                  color: Color(0xFFC08A48),
+                                  size: 82,
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                       Positioned(
                         top: 14,
                         right: 14,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 7),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFFAF0),
                             borderRadius: BorderRadius.circular(12),
@@ -70,6 +91,7 @@ class PhotoPreviewScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
+              _QualityHint(text: photo.sourceLabel),
               const _QualityHint(text: 'Pet is clearly visible'),
               const _QualityHint(text: 'Single pet'),
               const _QualityHint(text: 'Background may affect the result'),
@@ -91,7 +113,10 @@ class PhotoPreviewScreen extends StatelessWidget {
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => AvatarOptionsScreen(controller: controller),
+                            builder: (_) => AvatarOptionsScreen(
+                              controller: controller,
+                              photo: photo,
+                            ),
                           ),
                         );
                       },
@@ -118,7 +143,8 @@ class _QualityHint extends StatelessWidget {
       padding: const EdgeInsets.only(top: 8),
       child: Row(
         children: [
-          const Icon(Icons.check_circle_rounded, color: PetPalColors.honey, size: 18),
+          const Icon(Icons.check_circle_rounded,
+              color: PetPalColors.honey, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
