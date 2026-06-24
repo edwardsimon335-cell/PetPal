@@ -12,6 +12,8 @@ class PetProfile {
     required this.role,
     this.specialPersonalityDetail = '',
     this.sourcePhotoPath,
+    this.remotePetId,
+    this.avatarUrl,
     this.avatarVariant = 0,
     this.generationStatus = 'none',
     this.mood = 72,
@@ -29,6 +31,8 @@ class PetProfile {
   PresetRole role;
   String specialPersonalityDetail;
   String? sourcePhotoPath;
+  String? remotePetId;
+  String? avatarUrl;
   int avatarVariant;
   String generationStatus;
   int mood;
@@ -51,6 +55,8 @@ class PetProfile {
       'roleId': role.id,
       'specialPersonalityDetail': specialPersonalityDetail,
       'sourcePhotoPath': sourcePhotoPath,
+      'remotePetId': remotePetId,
+      'avatarUrl': avatarUrl,
       'avatarVariant': avatarVariant,
       'generationStatus': generationStatus,
       'mood': mood,
@@ -83,6 +89,8 @@ class PetProfile {
       specialPersonalityDetail:
           json['specialPersonalityDetail'] as String? ?? '',
       sourcePhotoPath: json['sourcePhotoPath'] as String?,
+      remotePetId: json['remotePetId'] as String?,
+      avatarUrl: json['avatarUrl'] as String?,
       avatarVariant: json['avatarVariant'] as int? ?? 0,
       generationStatus: json['generationStatus'] as String? ?? 'none',
       mood: json['mood'] as int? ?? 72,

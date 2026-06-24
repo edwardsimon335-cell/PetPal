@@ -3,12 +3,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../app/petpal_controller.dart';
+import '../../core/services/petpal_backend.dart';
 import '../../core/theme/petpal_theme.dart';
 import '../../shared/widgets/pixel_button.dart';
 import '../../shared/widgets/pixel_card.dart';
 import '../../shared/widgets/pixel_page_scaffold.dart';
 import 'avatar_options_screen.dart';
 import 'models/uploaded_pet_photo.dart';
+import 'services/avatar_generation_service.dart';
 import 'upload_photo_screen.dart';
 
 class PhotoPreviewScreen extends StatelessWidget {
@@ -116,6 +118,9 @@ class PhotoPreviewScreen extends StatelessWidget {
                             builder: (_) => AvatarOptionsScreen(
                               controller: controller,
                               photo: photo,
+                              generationService: PetPalBackend.isEnabled
+                                  ? SupabaseAvatarGenerationService()
+                                  : const MockAvatarGenerationService(),
                             ),
                           ),
                         );

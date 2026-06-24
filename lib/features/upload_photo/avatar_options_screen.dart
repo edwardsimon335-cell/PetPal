@@ -172,16 +172,38 @@ class _AvatarOptionsScreenState extends State<AvatarOptionsScreen> {
             return PixelCard(
               dark: true,
               selected: selected,
-              onTap: () => controller.selectGeneratedAvatar(candidate.variant),
+              onTap: () => controller.selectGeneratedAvatar(
+                candidate.variant,
+                remoteImageUrl: candidate.remoteImageUrl,
+              ),
               padding: EdgeInsets.zero,
               child: Stack(
                 children: [
                   Center(
-                    child: PixelPetSprite(
-                      role: controller.uploadedPlaceholder(candidate.variant),
-                      variant: candidate.variant,
-                      size: 112,
-                    ),
+                    child: candidate.remoteImageUrl == null
+                        ? PixelPetSprite(
+                            role: controller
+                                .uploadedPlaceholder(candidate.variant),
+                            variant: candidate.variant,
+                            size: 112,
+                          )
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Image.network(
+                              candidate.remoteImageUrl!,
+                              width: 116,
+                              height: 116,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) {
+                                return PixelPetSprite(
+                                  role: controller
+                                      .uploadedPlaceholder(candidate.variant),
+                                  variant: candidate.variant,
+                                  size: 112,
+                                );
+                              },
+                            ),
+                          ),
                   ),
                   Positioned(
                     top: 10,

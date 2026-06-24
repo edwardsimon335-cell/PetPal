@@ -1,4 +1,4 @@
-package com.example.petpal
+package com.edwardsimon335.petpal
 
 import io.flutter.embedding.android.FlutterActivity
 

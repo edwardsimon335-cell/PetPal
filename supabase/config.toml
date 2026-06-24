@@ -1,0 +1,29 @@
+project_id = "obzxhnwcdbbkhvpajwcw"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "petpal://auth"
+additional_redirect_urls = ["petpal://auth/callback"]
+enable_signup = true
+
+[functions.chat-with-pet]
+verify_jwt = true
+
+[functions.sync-pet]
+verify_jwt = true
+
+[functions.create-generation-task]
+verify_jwt = true
+
+[functions.generate-pet-avatar]
+verify_jwt = true
+
+[functions.update-pet-status]
+verify_jwt = true

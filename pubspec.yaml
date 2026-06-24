@@ -10,8 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  firebase_core: ^4.3.0
   image_picker: ^1.1.2
   shared_preferences: ^2.3.3
+  supabase_flutter: ^2.15.0
 
 dev_dependencies:
   flutter_test:
@@ -23,3 +25,7 @@ flutter:
   assets:
     - assets/backgrounds/
     - assets/branding/
+  fonts:
+    - family: PixelifySans
+      fonts:
+        - asset: assets/fonts/PixelifySans.ttf

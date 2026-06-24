@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "188935546747",
+    "project_id": "petpal-app-dianfanbao",
+    "storage_bucket": "petpal-app-dianfanbao.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:188935546747:android:7cf09e8cab343483df3fde",
+        "android_client_info": {
+          "package_name": "com.edwardsimon335.petpal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxLJIodfMbqV_yGcHa7pPdLsEGKK6u56E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

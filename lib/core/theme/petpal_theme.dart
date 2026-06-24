@@ -27,7 +27,7 @@ class PetPalTheme {
         brightness: Brightness.light,
       ),
       scaffoldBackgroundColor: PetPalColors.tan,
-      fontFamily: 'Arial',
+      fontFamily: 'PixelifySans',
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           fontSize: 34,

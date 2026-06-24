@@ -302,7 +302,7 @@ class _ChatBarState extends State<_ChatBar> {
           child: PixelButton(
             label: '',
             icon: const Icon(Icons.arrow_upward_rounded, size: 23),
-            onPressed: _send,
+            onPressed: widget.controller.chatBusy ? null : _send,
             height: 50,
           ),
         ),
@@ -310,10 +310,10 @@ class _ChatBarState extends State<_ChatBar> {
     );
   }
 
-  void _send() {
+  Future<void> _send() async {
     final text = messageController.text.trim();
     if (text.isEmpty) return;
-    widget.controller.sendMockMessage(text);
     messageController.clear();
+    await widget.controller.sendMessage(text);
   }
 }

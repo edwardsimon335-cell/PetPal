@@ -1,29 +1,38 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/services/petpal_backend.dart';
+import '../core/services/petpal_remote_api.dart';
 import '../shared/models/pet_profile.dart';
 import '../shared/models/preset_role.dart';
 import '../shared/repositories/mock_pet_repository.dart';
 
 class PetPalController extends ChangeNotifier {
-  PetPalController({MockPetRepository repository = const MockPetRepository()})
-      : _repository = repository {
+  PetPalController({
+    MockPetRepository repository = const MockPetRepository(),
+    PetPalRemoteApi? remoteApi,
+  })  : _repository = repository,
+        _remoteApi = remoteApi {
     roles = _repository.presetRoles();
   }
 
   static const _petStorageKey = 'petpal.current_pet.v1';
 
   final MockPetRepository _repository;
+  final PetPalRemoteApi? _remoteApi;
 
   late final List<PresetRole> roles;
   int? selectedAvatarVariant;
+  String? selectedAvatarUrl;
   PresetRole? selectedRole;
   PetProfile? currentPet;
   String? selectedUploadPhotoPath;
   String latestBubble = 'I missed you. Want to play?';
   bool chatMode = false;
+  bool chatBusy = false;
   bool isReady = false;
 
   static const allTraits = [
@@ -65,13 +74,15 @@ class PetPalController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selectGeneratedAvatar(int variant) {
+  void selectGeneratedAvatar(int variant, {String? remoteImageUrl}) {
     selectedAvatarVariant = variant;
+    selectedAvatarUrl = remoteImageUrl;
     notifyListeners();
   }
 
   void clearGeneratedAvatarSelection() {
     selectedAvatarVariant = null;
+    selectedAvatarUrl = null;
     notifyListeners();
   }
 
@@ -98,12 +109,14 @@ class PetPalController extends ChangeNotifier {
       role: uploadedPlaceholder(variant),
       specialPersonalityDetail: specialPersonalityDetail.trim(),
       sourcePhotoPath: selectedUploadPhotoPath,
+      avatarUrl: selectedAvatarUrl,
       avatarVariant: variant,
       generationStatus: 'generating',
       statusText: 'Generating final avatar',
     );
     latestBubble = 'What should we do first?';
     _saveCurrentPet();
+    unawaited(_syncCurrentPet());
     notifyListeners();
   }
 
@@ -124,6 +137,7 @@ class PetPalController extends ChangeNotifier {
     );
     latestBubble = 'I am home!';
     _saveCurrentPet();
+    unawaited(_syncCurrentPet());
     notifyListeners();
   }
 
@@ -174,7 +188,7 @@ class PetPalController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void sendMockMessage(String message) {
+  Future<void> sendMessage(String message) async {
     final text = message.trim();
     if (text.isEmpty) return;
     final pet = currentPet;
@@ -183,9 +197,48 @@ class PetPalController extends ChangeNotifier {
       pet.statusText = 'Chatting with you';
       _touch(pet);
     }
+    latestBubble = '...';
+    chatBusy = true;
+    _saveCurrentPet();
+    notifyListeners();
+
+    try {
+      await _syncCurrentPet();
+      final remotePetId = currentPet?.remotePetId;
+      if (PetPalBackend.isEnabled && remotePetId != null) {
+        latestBubble = await (_remoteApi ?? PetPalRemoteApi()).chatWithPet(
+          petId: remotePetId,
+          message: text,
+        );
+      } else {
+        latestBubble = _mockReplyFor(text);
+      }
+    } catch (error) {
+      debugPrint('PetPalController: remote chat failed: $error');
+      latestBubble = _mockReplyFor(text);
+    } finally {
+      chatBusy = false;
+      _saveCurrentPet();
+      notifyListeners();
+    }
+  }
+
+  void sendMockMessage(String message) {
+    final text = message.trim();
+    if (text.isEmpty) return;
     latestBubble = _mockReplyFor(text);
     _saveCurrentPet();
     notifyListeners();
+  }
+
+  Future<void> _syncCurrentPet() async {
+    final pet = currentPet;
+    if (pet == null || !PetPalBackend.isEnabled) return;
+
+    final payload = await (_remoteApi ?? PetPalRemoteApi()).syncPet(pet);
+    final remotePet = Map<String, dynamic>.from(payload['pet'] as Map);
+    pet.remotePetId = remotePet['id'] as String?;
+    _saveCurrentPet();
   }
 
   PresetRole _roleForStoredPet(Map<String, dynamic> json, int variant) {
