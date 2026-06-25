@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:pixelarticons/pixelarticons.dart';
 
+import '../../app/page_transitions.dart';
 import '../../app/petpal_controller.dart';
 import '../../core/theme/petpal_theme.dart';
 import '../../shared/models/preset_role.dart';
-import '../../shared/widgets/pixel_button.dart';
 import '../../shared/widgets/pixel_card.dart';
 import '../../shared/widgets/pixel_page_scaffold.dart';
 import '../../shared/widgets/pixel_pet_sprite.dart';
@@ -27,7 +28,7 @@ class CharacterLibraryScreen extends StatelessWidget {
                 children: [
                   IconButton.filledTonal(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.chevron_left_rounded),
+                    icon: const Icon(Pixel.chevronleft),
                     style: IconButton.styleFrom(
                       backgroundColor: const Color(0xFFF7E8C2),
                       foregroundColor: PetPalColors.bark,
@@ -75,33 +76,21 @@ class CharacterLibraryScreen extends StatelessWidget {
                         return _RoleCard(
                           role: role,
                           selected: controller.selectedRole?.id == role.id,
-                          onTap: () => controller.selectRole(role),
+                          onTap: () {
+                            controller.selectRole(role);
+                            Navigator.of(context).push(
+                              petPalRoute(
+                                builder: (_) => PetSetupScreen.library(
+                                  controller: controller,
+                                ),
+                              ),
+                            );
+                          },
                         );
                       },
                     );
                   },
                 ),
-              ),
-              const SizedBox(height: 12),
-              AnimatedBuilder(
-                animation: controller,
-                builder: (context, _) {
-                  return PixelButton(
-                    label: 'Continue',
-                    enabled: controller.selectedRole != null,
-                    icon: const Icon(Icons.chevron_right_rounded, size: 22),
-                    onPressed: controller.selectedRole == null
-                        ? null
-                        : () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PetSetupScreen.library(
-                                    controller: controller),
-                              ),
-                            );
-                          },
-                  );
-                },
               ),
             ],
           ),

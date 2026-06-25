@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pixelarticons/pixelarticons.dart';
 
+import '../../app/page_transitions.dart';
 import '../../app/petpal_controller.dart';
 import '../../core/constants/app_assets.dart';
 import '../../core/theme/petpal_theme.dart';
@@ -52,12 +54,12 @@ class WelcomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 48),
             _EntryCard(
-              icon: Icons.photo_camera_outlined,
+              icon: Pixel.camera,
               title: 'Upload My Pet Photo',
               subtitle: 'AI creates your own pixel pet',
               onTap: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(
+                  petPalRoute(
                     builder: (_) => UploadPhotoScreen(controller: controller),
                   ),
                 );
@@ -87,12 +89,12 @@ class WelcomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             _EntryCard(
-              icon: Icons.grid_view_rounded,
+              icon: Pixel.grid,
               title: 'Choose from Character Library',
               subtitle: 'Pick one of 6 crafted companions',
               onTap: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(
+                  petPalRoute(
                     builder: (_) =>
                         CharacterLibraryScreen(controller: controller),
                   ),
@@ -157,8 +159,7 @@ class _EntryCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded,
-              color: PetPalColors.cocoa, size: 28),
+          const Icon(Pixel.chevronright, color: PetPalColors.cocoa, size: 28),
         ],
       ),
     );

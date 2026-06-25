@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     await admin
       .from('pets')
       .update({
-        mood_value: Math.min(100, (pet.mood_value ?? 72) + 4),
+        mood_value: Math.min(100, (pet.mood_value ?? 100) + 4),
         current_status_text: 'Chatting with you',
         last_active_at: new Date().toISOString(),
       })

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:pixelarticons/pixelarticons.dart';
 
+import '../../app/page_transitions.dart';
 import '../../app/petpal_controller.dart';
 import '../../core/theme/petpal_theme.dart';
 import '../../shared/models/preset_role.dart';
 import '../../shared/widgets/pixel_button.dart';
 import '../../shared/widgets/pixel_card.dart';
 import '../../shared/widgets/pixel_page_scaffold.dart';
-import '../../shared/widgets/pixel_pet_sprite.dart';
+import '../../shared/widgets/pet_avatar_view.dart';
 import '../../shared/widgets/speech_bubble.dart';
 import '../../shared/widgets/trait_chip.dart';
 import '../pet_room/pet_room_screen.dart';
@@ -80,7 +82,7 @@ class _PetSetupScreenState extends State<PetSetupScreen> {
               children: [
                 IconButton.filledTonal(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.chevron_left_rounded),
+                  icon: const Icon(Pixel.chevronleft),
                   style: IconButton.styleFrom(
                     backgroundColor: const Color(0xFFF7E8C2),
                     foregroundColor: PetPalColors.bark,
@@ -124,8 +126,10 @@ class _PetSetupScreenState extends State<PetSetupScreen> {
               children: [
                 const SpeechBubble(text: 'What should my name be?'),
                 const SizedBox(height: 4),
-                PixelPetSprite(
+                PetAvatarView(
                   role: role,
+                  imageUrl:
+                      isUpload ? widget.controller.selectedAvatarUrl : null,
                   variant: widget.controller.selectedAvatarVariant ?? 0,
                   size: 154,
                 ),
@@ -239,8 +243,7 @@ class _PetSetupScreenState extends State<PetSetupScreen> {
                         const SizedBox(height: 8),
                         PixelButton(
                           label: 'Enter My Room',
-                          icon:
-                              const Icon(Icons.chevron_right_rounded, size: 22),
+                          icon: const Icon(Pixel.chevronright, size: 22),
                           enabled: traits.length >= 2,
                           onPressed: traits.length < 2 ? null : _enterRoom,
                         ),
@@ -282,7 +285,7 @@ class _PetSetupScreenState extends State<PetSetupScreen> {
       );
     }
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
+      petPalRoute(
         builder: (_) => PetRoomScreen(controller: widget.controller),
       ),
       (route) => false,

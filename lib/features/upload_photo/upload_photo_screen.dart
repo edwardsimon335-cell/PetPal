@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pixelarticons/pixelarticons.dart';
 
+import '../../app/page_transitions.dart';
 import '../../app/petpal_controller.dart';
 import '../../core/theme/petpal_theme.dart';
 import '../../shared/widgets/pixel_button.dart';
@@ -55,7 +57,7 @@ class _UploadPhotoScreenState extends State<UploadPhotoScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.photo_camera_outlined,
+                            Icon(Pixel.camera,
                                 size: 66, color: Color(0xFFB07F3F)),
                             SizedBox(height: 12),
                             Text(
@@ -103,26 +105,21 @@ class _UploadPhotoScreenState extends State<UploadPhotoScreen> {
                 ),
                 const SizedBox(height: 10),
               ],
-              Row(
+              Column(
                 children: [
-                  SizedBox(
-                    width: 88,
-                    child: PixelButton(
-                      label: 'Album',
-                      secondary: true,
-                      icon: const Icon(Icons.photo_library_outlined, size: 19),
-                      enabled: !picking,
-                      onPressed: () => _pickPhoto(PetPhotoSource.album),
-                    ),
+                  PixelButton(
+                    label: 'Choose from Album',
+                    secondary: true,
+                    icon: const Icon(Pixel.imagegallery, size: 19),
+                    enabled: !picking,
+                    onPressed: () => _pickPhoto(PetPhotoSource.album),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: PixelButton(
-                      label: 'Take Photo',
-                      icon: const Icon(Icons.camera_alt_outlined, size: 22),
-                      enabled: !picking,
-                      onPressed: () => _pickPhoto(PetPhotoSource.camera),
-                    ),
+                  const SizedBox(height: 10),
+                  PixelButton(
+                    label: 'Take Photo',
+                    icon: const Icon(Pixel.cameraalt, size: 22),
+                    enabled: !picking,
+                    onPressed: () => _pickPhoto(PetPhotoSource.camera),
                   ),
                 ],
               ),
@@ -168,7 +165,7 @@ class _UploadPhotoScreenState extends State<UploadPhotoScreen> {
   void _goPreview(BuildContext context, UploadedPetPhoto photo) {
     setState(() => picking = false);
     Navigator.of(context).push(
-      MaterialPageRoute(
+      petPalRoute(
         builder: (_) => PhotoPreviewScreen(
           controller: widget.controller,
           photo: photo,
@@ -195,7 +192,7 @@ class _FlowTopBar extends StatelessWidget {
       children: [
         IconButton.filledTonal(
           onPressed: onBack,
-          icon: const Icon(Icons.chevron_left_rounded),
+          icon: const Icon(Pixel.chevronleft),
           style: IconButton.styleFrom(
             backgroundColor: const Color(0xFFF7E8C2),
             foregroundColor: PetPalColors.bark,

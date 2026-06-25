@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:pixelarticons/pixelarticons.dart';
 
+import '../../app/page_transitions.dart';
 import '../../app/petpal_controller.dart';
 import '../../core/services/petpal_backend.dart';
 import '../../core/theme/petpal_theme.dart';
@@ -58,7 +60,7 @@ class PhotoPreviewScreen extends StatelessWidget {
                             errorBuilder: (context, error, stackTrace) {
                               return const Center(
                                 child: Icon(
-                                  Icons.pets_rounded,
+                                  Pixel.heart,
                                   color: Color(0xFFC08A48),
                                   size: 82,
                                 ),
@@ -111,10 +113,10 @@ class PhotoPreviewScreen extends StatelessWidget {
                   Expanded(
                     child: PixelButton(
                       label: 'Start Generation',
-                      icon: const Icon(Icons.auto_awesome_rounded, size: 20),
+                      icon: const Icon(Pixel.animation, size: 20),
                       onPressed: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute(
+                          petPalRoute(
                             builder: (_) => AvatarOptionsScreen(
                               controller: controller,
                               photo: photo,
@@ -148,8 +150,7 @@ class _QualityHint extends StatelessWidget {
       padding: const EdgeInsets.only(top: 8),
       child: Row(
         children: [
-          const Icon(Icons.check_circle_rounded,
-              color: PetPalColors.honey, size: 18),
+          const Icon(Pixel.check, color: PetPalColors.honey, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

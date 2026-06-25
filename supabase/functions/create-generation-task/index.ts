@@ -13,6 +13,10 @@ Deno.serve(async (req) => {
     if (!inputPhotoPath) return errorResponse('inputPhotoPath is required.');
 
     const { authUser } = await requireUser(req);
+    if (!inputPhotoPath.startsWith(`${authUser.id}/`)) {
+      return errorResponse('inputPhotoPath does not belong to the current user.', 403);
+    }
+
     const profile = await getOrCreateProfile(authUser.id);
     const admin = serviceClient();
 

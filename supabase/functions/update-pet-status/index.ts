@@ -1,6 +1,6 @@
 import { handleCors } from '../_shared/cors.ts';
 import { errorResponse, jsonResponse, readJson } from '../_shared/http.ts';
-import { requireUser, serviceClient } from '../_shared/supabase.ts';
+import { getOrCreateProfile, requireUser, serviceClient } from '../_shared/supabase.ts';
 
 Deno.serve(async (req) => {
   const cors = handleCors(req);
@@ -12,7 +12,8 @@ Deno.serve(async (req) => {
     const petId = body?.petId as string | undefined;
     if (!petId) return errorResponse('petId is required.');
 
-    await requireUser(req);
+    const { authUser } = await requireUser(req);
+    const profile = await getOrCreateProfile(authUser.id);
     const admin = serviceClient();
     const updates: Record<string, unknown> = {
       last_active_at: new Date().toISOString(),
@@ -27,6 +28,7 @@ Deno.serve(async (req) => {
       .from('pets')
       .update(updates)
       .eq('id', petId)
+      .eq('user_id', profile.id)
       .select('*')
       .single();
 

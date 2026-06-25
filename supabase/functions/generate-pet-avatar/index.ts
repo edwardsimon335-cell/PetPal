@@ -1,6 +1,6 @@
 import { handleCors } from '../_shared/cors.ts';
 import { errorMessage, errorResponse, jsonResponse, readJson } from '../_shared/http.ts';
-import { requireUser, serviceClient } from '../_shared/supabase.ts';
+import { getOrCreateProfile, requireUser, serviceClient } from '../_shared/supabase.ts';
 
 Deno.serve(async (req) => {
   const cors = handleCors(req);
@@ -8,25 +8,30 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return errorResponse('Method not allowed.', 405);
 
   let taskId: string | undefined;
+  let profileId: string | undefined;
   try {
     const body = await readJson(req);
     taskId = body?.taskId as string | undefined;
     if (!taskId) return errorResponse('taskId is required.');
 
-    await requireUser(req);
+    const { authUser } = await requireUser(req);
+    const profile = await getOrCreateProfile(authUser.id);
+    profileId = profile.id;
     const admin = serviceClient();
 
     const { data: task, error: taskError } = await admin
       .from('generation_tasks')
       .select('*')
       .eq('id', taskId)
+      .eq('user_id', profile.id)
       .single();
     if (taskError) throw taskError;
 
     await admin
       .from('generation_tasks')
       .update({ status: 'processing' })
-      .eq('id', taskId);
+      .eq('id', taskId)
+      .eq('user_id', profile.id);
 
     const imageUrls = await generateCandidates(task.input_photo_path, taskId);
 
@@ -37,6 +42,7 @@ Deno.serve(async (req) => {
         result_urls: imageUrls,
       })
       .eq('id', taskId)
+      .eq('user_id', profile.id)
       .select('*')
       .single();
 
@@ -44,12 +50,13 @@ Deno.serve(async (req) => {
     return jsonResponse({ task: updated });
   } catch (error) {
     const message = errorMessage(error);
-    if (taskId) {
+    if (taskId && profileId) {
       try {
         await serviceClient()
           .from('generation_tasks')
           .update({ status: 'failed', error_message: message })
-          .eq('id', taskId);
+          .eq('id', taskId)
+          .eq('user_id', profileId);
       } catch {
         // Preserve the original generation error for the client.
       }

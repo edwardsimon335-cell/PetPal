@@ -37,15 +37,40 @@ class _PetPalAppState extends State<PetPalApp> {
       home: AnimatedBuilder(
         animation: controller,
         builder: (context, _) {
+          late final Widget page;
           if (!controller.isReady) {
-            return const Scaffold(
+            page = const Scaffold(
+              key: ValueKey('loading'),
               body: Center(child: CircularProgressIndicator()),
             );
+          } else if (controller.currentPet != null) {
+            page = PetRoomScreen(
+              key: const ValueKey('pet-room'),
+              controller: controller,
+            );
+          } else {
+            page = WelcomeScreen(
+              key: const ValueKey('welcome'),
+              controller: controller,
+            );
           }
-          if (controller.currentPet != null) {
-            return PetRoomScreen(controller: controller);
-          }
-          return WelcomeScreen(controller: controller);
+
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              final offset = Tween<Offset>(
+                begin: const Offset(0, 0.025),
+                end: Offset.zero,
+              ).animate(animation);
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(position: offset, child: child),
+              );
+            },
+            child: page,
+          );
         },
       ),
     );

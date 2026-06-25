@@ -77,7 +77,7 @@ class SupabaseAvatarGenerationService implements AvatarGenerationService {
       for (final entry in urls.asMap().entries)
         AvatarCandidate(
           variant: offset + entry.key,
-          sourcePhotoPath: photo.file.path,
+          sourcePhotoPath: uploadedPath,
           remoteImageUrl: entry.value,
         ),
     ];

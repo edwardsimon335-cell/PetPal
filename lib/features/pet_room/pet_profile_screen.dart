@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:pixelarticons/pixelarticons.dart';
 
 import '../../app/petpal_controller.dart';
 import '../../core/theme/petpal_theme.dart';
 import '../../shared/widgets/pixel_page_scaffold.dart';
-import '../../shared/widgets/pixel_pet_sprite.dart';
+import '../../shared/widgets/pet_avatar_view.dart';
 
 class PetProfileScreen extends StatefulWidget {
   const PetProfileScreen({required this.controller, super.key});
@@ -57,8 +58,9 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                   children: [
                     Column(
                       children: [
-                        PixelPetSprite(
+                        PetAvatarView(
                             role: pet.role,
+                            imageUrl: pet.avatarUrl,
                             variant: pet.avatarVariant,
                             size: 112),
                         const SizedBox(height: 8),
@@ -93,7 +95,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                             onPressed: () {
                               setState(() => editing = !editing);
                             },
-                            icon: const Icon(Icons.edit_outlined,
+                            icon: const Icon(Pixel.edit,
                                 color: Color(0xFFEAD9BC), size: 18),
                           ),
                         ),
@@ -193,16 +195,24 @@ class _DarkTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      width: double.infinity,
       height: 54,
       child: Stack(
         alignment: Alignment.center,
         children: [
           Positioned(
-            left: 8,
+            left: 18,
+            top: 7,
             child: IconButton(
               onPressed: onBack,
-              icon: const Icon(Icons.chevron_left_rounded,
-                  color: Color(0xFFF3E4C4)),
+              icon: const Icon(Pixel.chevronleft, color: Color(0xFFF3E4C4)),
+              style: IconButton.styleFrom(
+                fixedSize: const Size(40, 40),
+                backgroundColor: const Color(0xC82C2016),
+                foregroundColor: const Color(0xFFF3E4C4),
+                side: const BorderSide(color: Color(0x26F7E9CD)),
+                shape: const CircleBorder(),
+              ),
             ),
           ),
           Text(

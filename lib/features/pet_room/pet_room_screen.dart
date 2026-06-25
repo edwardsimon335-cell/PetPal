@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:pixelarticons/pixelarticons.dart';
 
+import '../../app/page_transitions.dart';
 import '../../app/petpal_controller.dart';
 import '../../core/theme/petpal_theme.dart';
 import '../../shared/widgets/pixel_button.dart';
 import '../../shared/widgets/pixel_card.dart';
 import '../../shared/widgets/pixel_page_scaffold.dart';
-import '../../shared/widgets/pixel_pet_sprite.dart';
-import '../../shared/widgets/speech_bubble.dart';
+import '../../shared/widgets/pet_avatar_view.dart';
 import '../../shared/widgets/status_bar.dart';
 import '../settings/settings_screen.dart';
 import 'pet_profile_screen.dart';
+import 'widgets/chat_dialogue_area.dart';
+import 'widgets/pet_speech_bubble.dart';
 
 class PetRoomScreen extends StatelessWidget {
   const PetRoomScreen({required this.controller, super.key});
@@ -41,7 +44,7 @@ class PetRoomScreen extends StatelessWidget {
                         padding: const EdgeInsets.all(9),
                         onTap: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(
+                            petPalRoute(
                               builder: (_) =>
                                   PetProfileScreen(controller: controller),
                             ),
@@ -57,7 +60,7 @@ class PetRoomScreen extends StatelessWidget {
                                     .withValues(alpha: 0.14),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Icon(Icons.pets_rounded,
+                              child: const Icon(Pixel.heart,
                                   color: Color(0xFFF3E4C4)),
                             ),
                             const SizedBox(width: 9),
@@ -89,7 +92,7 @@ class PetRoomScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.edit_outlined,
+                            const Icon(Pixel.edit,
                                 size: 17, color: Color(0xFFF3E4C4)),
                           ],
                         ),
@@ -99,13 +102,13 @@ class PetRoomScreen extends StatelessWidget {
                     IconButton.filled(
                       onPressed: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute(
+                          petPalRoute(
                             builder: (_) =>
                                 SettingsScreen(controller: controller),
                           ),
                         );
                       },
-                      icon: const Icon(Icons.settings_outlined),
+                      icon: const Icon(Pixel.sliders2),
                       style: IconButton.styleFrom(
                         backgroundColor:
                             PetPalColors.ink.withValues(alpha: 0.78),
@@ -124,38 +127,56 @@ class PetRoomScreen extends StatelessWidget {
                     PetStatusBar(
                         value: pet.mood,
                         color: PetPalColors.heart,
-                        icon: Icons.favorite_rounded),
+                        icon: Pixel.heart),
                     const SizedBox(height: 9),
                     PetStatusBar(
                         value: pet.hunger,
                         color: PetPalColors.honey,
-                        icon: Icons.set_meal_rounded),
+                        icon: Pixel.coffee),
                     const SizedBox(height: 9),
                     PetStatusBar(
                         value: pet.cleanliness,
                         color: PetPalColors.blue,
-                        icon: Icons.auto_awesome_rounded),
+                        icon: Pixel.drop),
                   ],
                 ),
               ),
+              // Pet + its speech bubble move together, so the words always
+              // float just above the pet (spec 3.2 "气泡跟随宠物").
               Positioned(
-                left: 0,
-                right: 0,
-                top: MediaQuery.of(context).size.height * 0.34,
-                child: SpeechBubble(text: controller.latestBubble),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 110,
-                child: Center(
-                  child: PixelPetSprite(
-                    role: pet.role,
-                    variant: pet.avatarVariant,
-                    size: 176,
-                  ),
+                left: 14,
+                right: 14,
+                bottom: 150,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PetSpeechBubble(
+                      controller: controller,
+                      animated: controller.chatMode,
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      // Tapping the pet body is a free idle reaction (spec 3.5).
+                      onTap: controller.pokePet,
+                      child: PetAvatarView(
+                        role: pet.role,
+                        imageUrl: pet.avatarUrl,
+                        variant: pet.avatarVariant,
+                        size: 176,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              // Chat mode only: the user's latest message floats above the input
+              // box (spec 3.3 / 2.2).
+              if (controller.chatMode)
+                Positioned(
+                  left: 14,
+                  right: 14,
+                  bottom: 82,
+                  child: ChatDialogueArea(controller: controller),
+                ),
               Positioned(
                 left: 14,
                 right: 14,
@@ -186,7 +207,7 @@ class _InteractionBar extends StatelessWidget {
           child: PixelButton(
             label: '',
             secondary: true,
-            icon: const Icon(Icons.chat_bubble_outline_rounded, size: 21),
+            icon: const Icon(Pixel.chat, size: 21),
             onPressed: controller.toggleChatMode,
             height: 50,
           ),
@@ -196,7 +217,7 @@ class _InteractionBar extends StatelessWidget {
           child: PixelButton(
             label: 'Feed',
             secondary: true,
-            icon: const Icon(Icons.set_meal_rounded, size: 19),
+            icon: const Icon(Pixel.coffee, size: 19),
             onPressed: controller.feed,
             height: 50,
           ),
@@ -206,7 +227,7 @@ class _InteractionBar extends StatelessWidget {
           child: PixelButton(
             label: 'Clean',
             secondary: true,
-            icon: const Icon(Icons.bathtub_outlined, size: 19),
+            icon: const Icon(Pixel.drop, size: 19),
             onPressed: controller.clean,
             height: 50,
           ),
@@ -216,7 +237,7 @@ class _InteractionBar extends StatelessWidget {
           child: PixelButton(
             label: 'Pet',
             secondary: true,
-            icon: const Icon(Icons.back_hand_outlined, size: 19),
+            icon: const Icon(Pixel.moodhappy, size: 19),
             onPressed: controller.caress,
             height: 50,
           ),
@@ -260,7 +281,7 @@ class _ChatBarState extends State<_ChatBar> {
           child: PixelButton(
             label: '',
             secondary: true,
-            icon: const Icon(Icons.sync_rounded, size: 21),
+            icon: const Icon(Pixel.ksync, size: 21),
             onPressed: widget.controller.toggleChatMode,
             height: 50,
           ),
@@ -301,8 +322,10 @@ class _ChatBarState extends State<_ChatBar> {
           width: 50,
           child: PixelButton(
             label: '',
-            icon: const Icon(Icons.arrow_upward_rounded, size: 23),
-            onPressed: widget.controller.chatBusy ? null : _send,
+            icon: const Icon(Pixel.arrowup, size: 23),
+            // Always enabled — rapid sends queue and are answered in order
+            // (spec 3.3 "连续快速发送").
+            onPressed: _send,
             height: 50,
           ),
         ),

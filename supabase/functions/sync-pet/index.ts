@@ -27,9 +27,9 @@ Deno.serve(async (req) => {
       source_photo_path: body?.sourcePhotoPath ?? null,
       personality_tags: Array.isArray(body?.personalityTags) ? body.personalityTags : [],
       special_personality_detail: body?.specialPersonalityDetail ?? '',
-      mood_value: numberOrDefault(body?.mood, 72),
-      hunger_value: numberOrDefault(body?.hunger, 95),
-      clean_value: numberOrDefault(body?.cleanliness, 92),
+      mood_value: numberOrDefault(body?.mood, 100),
+      hunger_value: numberOrDefault(body?.hunger, 100),
+      clean_value: numberOrDefault(body?.cleanliness, 100),
       current_status_text: body?.statusText ?? 'Feeling cozy',
       generation_status: body?.generationStatus ?? 'none',
       last_active_at: new Date().toISOString(),
@@ -51,6 +51,13 @@ Deno.serve(async (req) => {
 
     const { data, error } = await query;
     if (error) throw error;
+
+    try {
+      await syncPetProfileMemory(admin, data);
+    } catch (memoryError) {
+      console.warn('Failed to sync pet profile memory:', errorMessage(memoryError));
+    }
+
     return jsonResponse({ pet: data });
   } catch (error) {
     return errorResponse(errorMessage(error), 500);
@@ -59,4 +66,53 @@ Deno.serve(async (req) => {
 
 function numberOrDefault(value: unknown, fallback: number) {
   return typeof value === 'number' ? value : fallback;
+}
+
+async function syncPetProfileMemory(admin: ReturnType<typeof serviceClient>, pet: Record<string, unknown>) {
+  const petId = pet.id;
+  if (typeof petId !== 'string') return;
+
+  const traits = Array.isArray(pet.personality_tags)
+    ? pet.personality_tags.filter((trait) => typeof trait === 'string').join(', ')
+    : '';
+  const detail =
+    typeof pet.special_personality_detail === 'string' && pet.special_personality_detail.trim()
+      ? `Special detail: ${pet.special_personality_detail.trim()}.`
+      : '';
+  const species =
+    typeof pet.species === 'string' && pet.species.trim()
+      ? pet.species.trim()
+      : 'virtual pet';
+  const content = [
+    `The pet is named ${pet.name}.`,
+    `Species or visual identity: ${species}.`,
+    traits ? `Personality traits: ${traits}.` : '',
+    detail,
+  ].filter(Boolean).join(' ');
+
+  const { data: existing, error: existingError } = await admin
+    .from('pet_memories')
+    .select('id')
+    .eq('pet_id', petId)
+    .eq('memory_type', 'pet_profile')
+    .limit(1)
+    .maybeSingle();
+  if (existingError) throw existingError;
+
+  if (existing?.id) {
+    const { error } = await admin
+      .from('pet_memories')
+      .update({ content, importance: 4 })
+      .eq('id', existing.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await admin.from('pet_memories').insert({
+    pet_id: petId,
+    memory_type: 'pet_profile',
+    content,
+    importance: 4,
+  });
+  if (error) throw error;
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pixelarticons/pixelarticons.dart';
 
+import '../../app/page_transitions.dart';
 import '../../app/petpal_controller.dart';
 import '../../core/theme/petpal_theme.dart';
 import '../../shared/widgets/pixel_button.dart';
@@ -76,7 +78,7 @@ class _AvatarOptionsScreenState extends State<AvatarOptionsScreen> {
               PixelButton(
                 label: 'Regenerate All ($regenerateLeft left)',
                 secondary: true,
-                icon: const Icon(Icons.refresh_rounded, size: 20),
+                icon: const Icon(Pixel.ksync, size: 20),
                 enabled: regenerateLeft > 0 && !loading,
                 onPressed: regenerateLeft > 0
                     ? () {
@@ -94,14 +96,14 @@ class _AvatarOptionsScreenState extends State<AvatarOptionsScreen> {
                 animation: controller,
                 builder: (context, _) {
                   return PixelButton(
-                    label: 'Confirm Selection',
+                    label: 'Confirm Selection, Continue',
                     enabled: controller.selectedAvatarVariant != null,
-                    icon: const Icon(Icons.chevron_right_rounded, size: 22),
+                    icon: const Icon(Pixel.chevronright, size: 22),
                     onPressed: controller.selectedAvatarVariant == null
                         ? null
                         : () {
                             Navigator.of(context).push(
-                              MaterialPageRoute(
+                              petPalRoute(
                                 builder: (_) => PetSetupScreen.upload(
                                     controller: controller),
                               ),
@@ -175,6 +177,7 @@ class _AvatarOptionsScreenState extends State<AvatarOptionsScreen> {
               onTap: () => controller.selectGeneratedAvatar(
                 candidate.variant,
                 remoteImageUrl: candidate.remoteImageUrl,
+                sourcePhotoPath: candidate.sourcePhotoPath,
               ),
               padding: EdgeInsets.zero,
               child: Stack(
@@ -215,7 +218,7 @@ class _AvatarOptionsScreenState extends State<AvatarOptionsScreen> {
                       top: 10,
                       right: 10,
                       child: Icon(
-                        Icons.check_circle_rounded,
+                        Pixel.check,
                         color: PetPalColors.honey,
                       ),
                     ),

@@ -50,10 +50,8 @@ class PixelButton extends StatelessWidget {
                 ]
               : null,
         ),
-        child: TextButton.icon(
+        child: TextButton(
           onPressed: active ? onPressed : null,
-          icon: icon ?? const SizedBox.shrink(),
-          label: Text(label),
           style: TextButton.styleFrom(
             foregroundColor: foreground,
             disabledForegroundColor: const Color(0xFF9D8F79),
@@ -66,6 +64,19 @@ class PixelButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
           ),
+          child: label.isEmpty
+              ? icon ?? const SizedBox.shrink()
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (icon != null) ...[
+                      icon!,
+                      const SizedBox(width: 8),
+                    ],
+                    Flexible(child: Text(label, overflow: TextOverflow.fade)),
+                  ],
+                ),
         ),
       ),
     );

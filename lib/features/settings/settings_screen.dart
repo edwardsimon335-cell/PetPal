@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pixelarticons/pixelarticons.dart';
 
 import '../../app/petpal_controller.dart';
 import '../../core/theme/petpal_theme.dart';
@@ -35,16 +36,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Column(
         children: [
           SizedBox(
-            height: 54,
+            width: double.infinity,
+            height: 58,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 Positioned(
-                  left: 8,
+                  left: 18,
+                  top: 8,
                   child: IconButton(
+                    tooltip: 'Back',
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.chevron_left_rounded,
-                        color: Color(0xFFF3E4C4)),
+                    icon: const Icon(Pixel.arrowleft, size: 20),
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size(40, 40),
+                      backgroundColor: PetPalColors.ink.withValues(alpha: 0.78),
+                      foregroundColor: const Color(0xFFF3E4C4),
+                      side: const BorderSide(color: Color(0x26F7E9CD)),
+                      shape: const CircleBorder(),
+                    ),
                   ),
                 ),
                 const Text(
@@ -77,7 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Expanded(
                       child: _WidgetPreview(
                         title: pet?.name ?? 'Mochi',
-                        subtitle: 'Mood ${pet?.mood ?? 72}% · Misses you',
+                        subtitle: 'Mood ${pet?.mood ?? 100}% - Misses you',
                         compact: false,
                       ),
                     ),
@@ -184,8 +194,7 @@ class _WidgetPreview extends StatelessWidget {
           ? Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.pets_rounded,
-                    color: PetPalColors.bark, size: 32),
+                const Icon(Pixel.heart, color: PetPalColors.bark, size: 32),
                 const SizedBox(height: 8),
                 Text(title,
                     overflow: TextOverflow.ellipsis, style: _titleStyle),
@@ -195,8 +204,7 @@ class _WidgetPreview extends StatelessWidget {
             )
           : Row(
               children: [
-                const Icon(Icons.pets_rounded,
-                    color: PetPalColors.bark, size: 42),
+                const Icon(Pixel.heart, color: PetPalColors.bark, size: 42),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -341,7 +349,7 @@ class _ActionRow extends StatelessWidget {
                   letterSpacing: 0),
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: Color(0xFF8C7252)),
+          const Icon(Pixel.chevronright, color: Color(0xFF8C7252)),
         ],
       ),
     );
