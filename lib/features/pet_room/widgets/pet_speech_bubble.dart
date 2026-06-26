@@ -25,8 +25,9 @@ class PetSpeechBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showThinking = animated && controller.petThinking;
+    // The freshest utterance — a reply, an action line, or a poke reaction.
+    final text = controller.latestBubble;
     final lastPet = controller.lastPetMessage;
-    final text = lastPet?.text ?? controller.latestBubble;
 
     final Widget content;
     if (showThinking) {
@@ -35,8 +36,11 @@ class PetSpeechBubble extends StatelessWidget {
         child: ThinkingDots(),
       );
     } else {
-      final isStreaming =
-          animated && lastPet != null && lastPet.id == controller.streamingMessageId;
+      // Animate the typewriter only for a fresh, still-streaming reply.
+      final isStreaming = animated &&
+          controller.streamingMessageId != null &&
+          lastPet != null &&
+          lastPet.text == text;
       content = TypewriterText(
         text: text,
         textAlign: TextAlign.center,

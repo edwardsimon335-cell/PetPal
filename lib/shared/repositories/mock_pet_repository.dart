@@ -20,6 +20,19 @@ class MockPetRepository {
         tabby: true,
       ),
       PresetRole(
+        id: 'nuonuo',
+        name: 'NuoNuo',
+        species: 'Black Munchkin Cat',
+        description:
+            'A fluffy short-legged black cat who naps a lot and loves company.',
+        defaultTraits: ['Affectionate', 'Quiet', 'Playful'],
+        body: Color(0xFF0B0B10),
+        shade: Color(0xFF202434),
+        eye: Color(0xFFEAC94A),
+        accent: Color(0xFFD88A9A),
+        chest: Color(0xFF151620),
+      ),
+      PresetRole(
         id: 'luna',
         name: 'Luna',
         species: 'Calico Cat',

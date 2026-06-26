@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/services/petpal_backend.dart';
 import '../core/services/petpal_remote_api.dart';
 import '../shared/models/chat_message.dart';
+import '../shared/models/pet_activity.dart';
 import '../shared/models/pet_profile.dart';
 import '../shared/models/preset_role.dart';
 import '../shared/repositories/mock_pet_repository.dart';
@@ -72,6 +73,25 @@ class PetPalController extends ChangeNotifier {
       if (messages[i].isUser) return messages[i];
     }
     return null;
+  }
+
+  /// When the user last did anything with the pet. The stage uses this to
+  /// decide when the pet may nap (autonomous, 旅行青蛙-style).
+  DateTime lastInteractionAt = DateTime.now();
+
+  /// A one-shot activity the stage should play in response to a button action
+  /// (Feed/Clean/Pet). Observed via [actionRequestSeq]; the stage compares the
+  /// sequence number so it only fires once per request.
+  PetActivity requestedActivity = PetActivity.idle;
+  int actionRequestSeq = 0;
+
+  void markInteraction() {
+    lastInteractionAt = DateTime.now();
+  }
+
+  void _requestActivity(PetActivity activity) {
+    requestedActivity = activity;
+    actionRequestSeq++;
   }
 
   static const allTraits = [
@@ -209,6 +229,8 @@ class PetPalController extends ChangeNotifier {
     pet.hunger = (pet.hunger + 12).clamp(0, 100).toInt();
     pet.statusText = 'Full and happy';
     _touch(pet);
+    markInteraction();
+    _requestActivity(PetActivity.eating);
     _addActionLine(_feedLine(pet));
     unawaited(_syncPetStatus(pet));
   }
@@ -219,6 +241,8 @@ class PetPalController extends ChangeNotifier {
     pet.cleanliness = (pet.cleanliness + 10).clamp(0, 100).toInt();
     pet.statusText = 'Fresh and shiny';
     _touch(pet);
+    markInteraction();
+    _requestActivity(PetActivity.happy);
     _addActionLine(_cleanLine(pet));
     unawaited(_syncPetStatus(pet));
   }
@@ -229,6 +253,8 @@ class PetPalController extends ChangeNotifier {
     pet.mood = (pet.mood + 10).clamp(0, 100).toInt();
     pet.statusText = 'Loved';
     _touch(pet);
+    markInteraction();
+    _requestActivity(PetActivity.happy);
     _addActionLine(_caressLine(pet));
     unawaited(_syncPetStatus(pet));
   }
@@ -245,6 +271,7 @@ class PetPalController extends ChangeNotifier {
       '*little hop!*',
     ];
     latestBubble = reactions[DateTime.now().millisecond % reactions.length];
+    markInteraction();
     notifyListeners();
   }
 
@@ -295,6 +322,7 @@ class PetPalController extends ChangeNotifier {
   Future<void> sendMessage(String message) async {
     final text = message.trim();
     if (text.isEmpty) return;
+    markInteraction();
     final userMsg = ChatMessage.user(text);
     messages.add(userMsg);
     _pending.add(userMsg);

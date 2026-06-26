@@ -7,12 +7,11 @@ import '../../core/theme/petpal_theme.dart';
 import '../../shared/widgets/pixel_button.dart';
 import '../../shared/widgets/pixel_card.dart';
 import '../../shared/widgets/pixel_page_scaffold.dart';
-import '../../shared/widgets/pet_avatar_view.dart';
 import '../../shared/widgets/status_bar.dart';
 import '../settings/settings_screen.dart';
 import 'pet_profile_screen.dart';
 import 'widgets/chat_dialogue_area.dart';
-import 'widgets/pet_speech_bubble.dart';
+import 'widgets/pet_stage.dart';
 
 class PetRoomScreen extends StatelessWidget {
   const PetRoomScreen({required this.controller, super.key});
@@ -141,33 +140,10 @@ class PetRoomScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              // Pet + its speech bubble move together, so the words always
-              // float just above the pet (spec 3.2 "气泡跟随宠物").
-              Positioned(
-                left: 14,
-                right: 14,
-                bottom: 150,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    PetSpeechBubble(
-                      controller: controller,
-                      animated: controller.chatMode,
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      // Tapping the pet body is a free idle reaction (spec 3.5).
-                      onTap: controller.pokePet,
-                      child: PetAvatarView(
-                        role: pet.role,
-                        imageUrl: pet.avatarUrl,
-                        variant: pet.avatarVariant,
-                        size: 176,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // The pet wanders the floor, naps, and reacts to taps; its speech
+              // bubble follows it. Fills the stage but only the pet body is
+              // tappable, so the bars above/below stay interactive.
+              Positioned.fill(child: PetStage(controller: controller)),
               // Chat mode only: the user's latest message floats above the input
               // box (spec 3.3 / 2.2).
               if (controller.chatMode)
