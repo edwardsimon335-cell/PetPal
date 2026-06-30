@@ -30,8 +30,27 @@ Deno.serve(async (req) => {
       mood_value: numberOrDefault(body?.mood, 100),
       hunger_value: numberOrDefault(body?.hunger, 100),
       clean_value: numberOrDefault(body?.cleanliness, 100),
+      affinity_value: numberOrDefault(body?.affinity, 0),
+      affinity_level: affinityLevelFor(
+        numberOrDefault(body?.affinity, 0),
+        body?.affinityLevel,
+      ),
       current_status_text: body?.statusText ?? 'Feeling cozy',
       generation_status: body?.generationStatus ?? 'none',
+      last_settlement_at: timestampOrNow(body?.lastSettlementAt),
+      last_daily_reset_date: stringOrDefault(body?.lastDailyResetDate, localDateKey()),
+      feed_last_at: nullableTimestamp(body?.feedLastAt),
+      caress_last_at: nullableTimestamp(body?.caressLastAt),
+      feed_effective_count_today: numberOrDefault(body?.feedEffectiveCountToday, 0),
+      caress_effective_count_today: numberOrDefault(body?.caressEffectiveCountToday, 0),
+      chat_mood_gain_today: numberOrDefault(body?.chatMoodGainToday, 0),
+      valid_chat_count_today: numberOrDefault(body?.validChatCountToday, 0),
+      affinity_gain_today: numberOrDefault(body?.affinityGainToday, 0),
+      return_tip_show_count_today: numberOrDefault(body?.returnTipShowCountToday, 0),
+      daily_first_feed_done: booleanOrDefault(body?.dailyFirstFeedDone, false),
+      daily_first_caress_done: booleanOrDefault(body?.dailyFirstCaressDone, false),
+      daily_chat_affinity_done: booleanOrDefault(body?.dailyChatAffinityDone, false),
+      daily_first_return_done: booleanOrDefault(body?.dailyFirstReturnDone, false),
       last_active_at: new Date().toISOString(),
     };
 
@@ -66,6 +85,37 @@ Deno.serve(async (req) => {
 
 function numberOrDefault(value: unknown, fallback: number) {
   return typeof value === 'number' ? value : fallback;
+}
+
+function booleanOrDefault(value: unknown, fallback: boolean) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function stringOrDefault(value: unknown, fallback: string) {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function nullableTimestamp(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function timestampOrNow(value: unknown) {
+  return nullableTimestamp(value) ?? new Date().toISOString();
+}
+
+function localDateKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function affinityLevelFor(affinity: number, explicit: unknown) {
+  if (typeof explicit === 'number' && explicit >= 1 && explicit <= 5) {
+    return Math.floor(explicit);
+  }
+  if (affinity >= 30) return 5;
+  if (affinity >= 14) return 4;
+  if (affinity >= 7) return 3;
+  if (affinity >= 3) return 2;
+  return 1;
 }
 
 async function syncPetProfileMemory(admin: ReturnType<typeof serviceClient>, pet: Record<string, unknown>) {

@@ -5,12 +5,14 @@ class PetStatusBar extends StatelessWidget {
     required this.value,
     required this.color,
     required this.icon,
+    this.valueLabel,
     super.key,
   });
 
   final int value;
   final Color color;
   final IconData icon;
+  final String? valueLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +43,20 @@ class PetStatusBar extends StatelessWidget {
               value: value.clamp(0, 100) / 100,
               backgroundColor: const Color(0xFFFFFAF0),
               valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        SizedBox(
+          width: 34,
+          child: Text(
+            valueLabel ?? '$value',
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: Color(0xFFFFFAF0),
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0,
             ),
           ),
         ),

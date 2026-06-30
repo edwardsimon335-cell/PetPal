@@ -57,19 +57,18 @@ void main() {
 
     expect(controller.messages.length, 1);
     expect(controller.messages.single.isPet, isTrue);
-    // Sassy feed line from the controller.
-    expect(controller.latestBubble, 'Hmph. Acceptable. More?');
+    expect(controller.latestBubble, 'Mochi is full and cozy now.');
   });
 
-  test('poking the pet reacts without recording or spending stats', () async {
+  test('poking the pet follows caress rules', () async {
     final controller = controllerWithPet();
-    final moodBefore = controller.currentPet!.mood;
+    controller.currentPet!.mood = 60;
 
     controller.pokePet();
 
-    expect(controller.messages, isEmpty);
-    expect(controller.currentPet!.mood, moodBefore);
-    expect(controller.latestBubble, isNotEmpty);
+    expect(controller.messages.length, 1);
+    expect(controller.currentPet!.mood, 72);
+    expect(controller.latestBubble, 'Mochi leaned closer to your hand.');
   });
 
   test('remembering a message flags it and shows a hint', () async {

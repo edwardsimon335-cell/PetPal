@@ -160,6 +160,11 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                             value: pet.hunger,
                             color: PetPalColors.honey),
                         _Meter(
+                            label: 'Affinity',
+                            value: pet.affinityProgressPercent,
+                            valueLabel: 'Lv.${pet.affinityLevel}',
+                            color: const Color(0xFF9D74E8)),
+                        _Meter(
                             label: 'Clean',
                             value: pet.cleanliness,
                             color: PetPalColors.blue),
@@ -311,11 +316,17 @@ class _InfoRow extends StatelessWidget {
 }
 
 class _Meter extends StatelessWidget {
-  const _Meter({required this.label, required this.value, required this.color});
+  const _Meter({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.valueLabel,
+  });
 
   final String label;
   final int value;
   final Color color;
+  final String? valueLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +335,7 @@ class _Meter extends StatelessWidget {
       child: Row(
         children: [
           SizedBox(
-            width: 54,
+            width: 68,
             child: Text(
               label,
               style: const TextStyle(
@@ -348,7 +359,7 @@ class _Meter extends StatelessWidget {
           SizedBox(
             width: 32,
             child: Text(
-              '$value',
+              valueLabel ?? '$value',
               textAlign: TextAlign.right,
               style: const TextStyle(
                   color: Color(0xFFE0C79F),

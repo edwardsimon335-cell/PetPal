@@ -39,6 +39,7 @@ class PetPalController extends ChangeNotifier {
   bool chatMode = false;
   bool chatBusy = false;
   bool isReady = false;
+  String? roomNotice;
 
   /// Full conversation history, shared by the main-screen dialogue overlay and
   /// the chat history window (spec 3.3 / 3.4). Oldest first.
@@ -58,6 +59,25 @@ class PetPalController extends ChangeNotifier {
   /// consecutive sends queue in order instead of interleaving (spec 3.3).
   final List<ChatMessage> _pending = [];
   bool _processingQueue = false;
+  Timer? _noticeTimer;
+  String? _lastValidChatText;
+  DateTime? _lastValidChatAt;
+
+  String get feedCooldownLabel {
+    final pet = currentPet;
+    if (pet == null) return '';
+    final remaining = pet.feedRemainingCooldown(DateTime.now());
+    if (remaining == Duration.zero) return '';
+    return _formatCooldown(remaining);
+  }
+
+  String get caressCooldownLabel {
+    final pet = currentPet;
+    if (pet == null) return '';
+    final remaining = pet.caressRemainingCooldown(DateTime.now());
+    if (remaining == Duration.zero) return '';
+    return _formatCooldown(remaining);
+  }
 
   /// The most recent pet line, used by the speech bubble above the pet.
   ChatMessage? get lastPetMessage {
@@ -128,8 +148,7 @@ class PetPalController extends ChangeNotifier {
         selectedAvatarVariant = variant;
         selectedUploadPhotoPath = currentPet?.sourcePhotoPath;
       }
-      _applyOfflineDecay();
-      latestBubble = _welcomeBackBubble();
+      handleRoomEntry();
       await _saveCurrentPet();
       if (currentPet != null) {
         unawaited(_syncPetStatus(currentPet!));
@@ -137,6 +156,30 @@ class PetPalController extends ChangeNotifier {
     }
     isReady = true;
     notifyListeners();
+  }
+
+  void handleRoomEntry({DateTime? now}) {
+    final pet = currentPet;
+    if (pet == null) return;
+    final currentTime = now ?? DateTime.now();
+    _dailyResetIfNeeded(pet, currentTime);
+    final offlineDuration = _settleOfflineState(pet, currentTime);
+    final leveledUp = _awardDailyReturnAffinity(pet);
+    _refreshStatusText(pet);
+    latestBubble = _welcomeBackBubble(offlineDuration);
+    _touch(pet, now: currentTime);
+    unawaited(_saveCurrentPet());
+    if (leveledUp) _showAffinityLevelNotice(pet);
+    if (offlineDuration != null) {
+      _showReturnTipIfNeeded(pet, offlineDuration, currentTime);
+    }
+    notifyListeners();
+  }
+
+  void onAppResumed() {
+    handleRoomEntry();
+    final pet = currentPet;
+    if (pet != null) unawaited(_syncPetStatus(pet));
   }
 
   void selectGeneratedAvatar(
@@ -186,6 +229,7 @@ class PetPalController extends ChangeNotifier {
       generationStatus: 'generating',
       statusText: 'Generating final avatar',
     );
+    _dailyResetIfNeeded(currentPet!, DateTime.now());
     latestBubble = 'What should we do first?';
     _saveCurrentPet();
     unawaited(_syncCurrentPet());
@@ -205,8 +249,9 @@ class PetPalController extends ChangeNotifier {
       role: role,
       specialPersonalityDetail: specialPersonalityDetail.trim(),
       generationStatus: 'none',
-      statusText: 'Feeling cozy',
     );
+    _refreshStatusText(currentPet!);
+    _dailyResetIfNeeded(currentPet!, DateTime.now());
     latestBubble = 'I am home!';
     _saveCurrentPet();
     unawaited(_syncCurrentPet());
@@ -218,6 +263,7 @@ class PetPalController extends ChangeNotifier {
     if (pet == null) return;
     pet.name = name.trim().isEmpty ? pet.name : name.trim();
     _touch(pet);
+    _refreshStatusText(pet);
     _saveCurrentPet();
     unawaited(_syncCurrentPet());
     notifyListeners();
@@ -226,21 +272,42 @@ class PetPalController extends ChangeNotifier {
   void feed() {
     final pet = currentPet;
     if (pet == null) return;
-    pet.hunger = (pet.hunger + 12).clamp(0, 100).toInt();
-    pet.statusText = 'Full and happy';
-    _touch(pet);
+    final now = DateTime.now();
+    _dailyResetIfNeeded(pet, now);
     markInteraction();
     _requestActivity(PetActivity.eating);
-    _addActionLine(_feedLine(pet));
+
+    String line;
+    if (pet.feedEffectiveCountToday >= 5) {
+      line = '${pet.name} has eaten plenty today.';
+    } else if (pet.isFeedInCooldown(now)) {
+      line = '${pet.name} is still full right now.';
+    } else {
+      final previousHunger = pet.hunger;
+      final previousLevel = pet.affinityLevel;
+      pet.hunger = (pet.hunger + 35).clamp(0, 100).toInt();
+      pet.mood = (pet.mood + 3).clamp(0, 100).toInt();
+      pet.feedLastAt = now;
+      pet.feedEffectiveCountToday += 1;
+      final leveledUp = _awardFeedAffinity(pet, previousLevel);
+      line = _feedLine(pet, previousHunger: previousHunger);
+      if (leveledUp) _showAffinityLevelNotice(pet);
+    }
+
+    _touch(pet, now: now);
+    _refreshStatusText(pet);
+    _addActionLine(line);
     unawaited(_syncPetStatus(pet));
   }
 
   void clean() {
     final pet = currentPet;
     if (pet == null) return;
+    final now = DateTime.now();
+    _dailyResetIfNeeded(pet, now);
     pet.cleanliness = (pet.cleanliness + 10).clamp(0, 100).toInt();
     pet.statusText = 'Fresh and shiny';
-    _touch(pet);
+    _touch(pet, now: now);
     markInteraction();
     _requestActivity(PetActivity.happy);
     _addActionLine(_cleanLine(pet));
@@ -250,12 +317,30 @@ class PetPalController extends ChangeNotifier {
   void caress() {
     final pet = currentPet;
     if (pet == null) return;
-    pet.mood = (pet.mood + 10).clamp(0, 100).toInt();
-    pet.statusText = 'Loved';
-    _touch(pet);
+    final now = DateTime.now();
+    _dailyResetIfNeeded(pet, now);
     markInteraction();
     _requestActivity(PetActivity.happy);
-    _addActionLine(_caressLine(pet));
+
+    String line;
+    if (pet.caressEffectiveCountToday >= 8) {
+      line = '${pet.name} has felt lots of love today.';
+    } else if (pet.isCaressInCooldown(now)) {
+      line = '${pet.name} already feels loved.';
+    } else {
+      final previousMood = pet.mood;
+      final previousLevel = pet.affinityLevel;
+      pet.mood = (pet.mood + 12).clamp(0, 100).toInt();
+      pet.caressLastAt = now;
+      pet.caressEffectiveCountToday += 1;
+      final leveledUp = _awardCaressAffinity(pet, previousLevel);
+      line = _caressLine(pet, previousMood: previousMood);
+      if (leveledUp) _showAffinityLevelNotice(pet);
+    }
+
+    _touch(pet, now: now);
+    _refreshStatusText(pet);
+    _addActionLine(line);
     unawaited(_syncPetStatus(pet));
   }
 
@@ -263,16 +348,7 @@ class PetPalController extends ChangeNotifier {
   /// recorded in history — it exists purely to make the pet feel alive
   /// (spec 3.5 "点击宠物本体").
   void pokePet() {
-    const reactions = [
-      '*wiggles happily*',
-      '*blinks at you*',
-      '*tail swish~*',
-      '*tilts head*',
-      '*little hop!*',
-    ];
-    latestBubble = reactions[DateTime.now().millisecond % reactions.length];
-    markInteraction();
-    notifyListeners();
+    caress();
   }
 
   /// Adds a pet line triggered by an interaction button so it shows in the
@@ -287,7 +363,16 @@ class PetPalController extends ChangeNotifier {
     notifyListeners();
   }
 
-  String _feedLine(PetProfile pet) {
+  String _feedLine(PetProfile pet, {required int previousHunger}) {
+    if (previousHunger < 50) {
+      return '${pet.name} looks much better after eating.';
+    }
+    if (pet.hunger >= 80) {
+      return '${pet.name} is full and cozy now.';
+    }
+    if (previousHunger >= 0) {
+      return '${pet.name} happily finished the food.';
+    }
     if (pet.traits.contains('Sassy')) return 'Hmph. Acceptable. More?';
     if (pet.traits.contains('Foodie')) return 'YUM!! Best meal ever, encore!';
     if (pet.traits.contains('Affectionate')) {
@@ -302,7 +387,16 @@ class PetPalController extends ChangeNotifier {
     return 'I feel sparkly now.';
   }
 
-  String _caressLine(PetProfile pet) {
+  String _caressLine(PetProfile pet, {required int previousMood}) {
+    if (previousMood < 60) {
+      return '${pet.name} seems to feel a little better.';
+    }
+    if (pet.mood >= 80) {
+      return '${pet.name} looks really happy.';
+    }
+    if (previousMood >= 0) {
+      return '${pet.name} leaned closer to your hand.';
+    }
     if (pet.traits.contains('Sassy')) return 'Hmph… just this once, okay?';
     if (pet.traits.contains('Shy')) return '*leans in a little* …that\'s nice.';
     if (pet.traits.contains('Affectionate')) {
@@ -322,6 +416,8 @@ class PetPalController extends ChangeNotifier {
   Future<void> sendMessage(String message) async {
     final text = message.trim();
     if (text.isEmpty) return;
+    final pet = currentPet;
+    if (pet != null) _dailyResetIfNeeded(pet, DateTime.now());
     markInteraction();
     final userMsg = ChatMessage.user(text);
     messages.add(userMsg);
@@ -370,6 +466,12 @@ class PetPalController extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
+  void dispose() {
+    _noticeTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _drainQueue() async {
     if (_processingQueue) return;
     _processingQueue = true;
@@ -398,7 +500,11 @@ class PetPalController extends ChangeNotifier {
       final remotePetId = currentPet?.remotePetId;
       if (PetPalBackend.isEnabled && remotePetId != null) {
         reply = await (_remoteApi ?? PetPalRemoteApi())
-            .chatWithPet(petId: remotePetId, message: userMsg.text)
+            .chatWithPet(
+              petId: remotePetId,
+              message: userMsg.text,
+              pet: currentPet,
+            )
             .timeout(_replyTimeout);
       } else {
         // Local demo: a short pause stands in for the pet "thinking".
@@ -435,9 +541,29 @@ class PetPalController extends ChangeNotifier {
   void _onPetReply(String reply, {String? sourceUserMessage}) {
     final pet = currentPet;
     if (pet != null) {
-      pet.mood = (pet.mood + 4).clamp(0, 100).toInt();
-      pet.statusText = 'Chatting with you';
-      _touch(pet);
+      final now = DateTime.now();
+      _dailyResetIfNeeded(pet, now);
+      final validChat = sourceUserMessage != null &&
+          _isValidChatForStatus(sourceUserMessage, now);
+      final previousLevel = pet.affinityLevel;
+      if (validChat) {
+        if (pet.chatMoodGainToday < 30) {
+          final gain = (30 - pet.chatMoodGainToday).clamp(0, 4).toInt();
+          pet.mood = (pet.mood + gain).clamp(0, 100).toInt();
+          pet.chatMoodGainToday += gain;
+        }
+        pet.validChatCountToday += 1;
+        if (pet.validChatCountToday >= 3 &&
+            !pet.dailyChatAffinityDone &&
+            pet.affinityGainToday < 3) {
+          pet.affinity += 1;
+          pet.affinityGainToday += 1;
+          pet.dailyChatAffinityDone = true;
+        }
+      }
+      _refreshStatusText(pet);
+      _touch(pet, now: now);
+      if (pet.affinityLevel > previousLevel) _showAffinityLevelNotice(pet);
     }
     final petMsg = ChatMessage.pet(reply);
     messages.add(petMsg);
@@ -448,6 +574,7 @@ class PetPalController extends ChangeNotifier {
     }
     _trimAndSaveMessages();
     _saveCurrentPet();
+    if (pet != null) unawaited(_syncPetStatus(pet));
     notifyListeners();
   }
 
@@ -510,6 +637,22 @@ class PetPalController extends ChangeNotifier {
         hunger: pet.hunger,
         cleanliness: pet.cleanliness,
         statusText: pet.statusText,
+        affinity: pet.affinity,
+        affinityLevel: pet.affinityLevel,
+        lastSettlementAt: pet.lastSettlementAt,
+        lastDailyResetDate: pet.lastDailyResetDate,
+        feedLastAt: pet.feedLastAt,
+        caressLastAt: pet.caressLastAt,
+        feedEffectiveCountToday: pet.feedEffectiveCountToday,
+        caressEffectiveCountToday: pet.caressEffectiveCountToday,
+        chatMoodGainToday: pet.chatMoodGainToday,
+        validChatCountToday: pet.validChatCountToday,
+        affinityGainToday: pet.affinityGainToday,
+        returnTipShowCountToday: pet.returnTipShowCountToday,
+        dailyFirstFeedDone: pet.dailyFirstFeedDone,
+        dailyFirstCaressDone: pet.dailyFirstCaressDone,
+        dailyChatAffinityDone: pet.dailyChatAffinityDone,
+        dailyFirstReturnDone: pet.dailyFirstReturnDone,
       );
     } catch (error) {
       debugPrint('PetPalController: status sync failed: $error');
@@ -525,38 +668,162 @@ class PetPalController extends ChangeNotifier {
     return _repository.roleById(roleId) ?? roles.first;
   }
 
-  void _applyOfflineDecay() {
-    final pet = currentPet;
-    if (pet == null) return;
+  void _dailyResetIfNeeded(PetProfile pet, DateTime now) {
+    final today = petLocalDateKey(now);
+    if (pet.lastDailyResetDate == today) return;
+    pet.feedEffectiveCountToday = 0;
+    pet.caressEffectiveCountToday = 0;
+    pet.chatMoodGainToday = 0;
+    pet.validChatCountToday = 0;
+    pet.affinityGainToday = 0;
+    pet.returnTipShowCountToday = 0;
+    pet.dailyFirstFeedDone = false;
+    pet.dailyFirstCaressDone = false;
+    pet.dailyChatAffinityDone = false;
+    pet.dailyFirstReturnDone = false;
+    pet.lastDailyResetDate = today;
+  }
 
-    final now = DateTime.now();
-    final elapsed = now.difference(pet.lastActiveAt);
-    final moodDrops = elapsed.inHours ~/ 4;
-    final hungerDrops = elapsed.inHours ~/ 6;
-    final cleanDrops = elapsed.inHours ~/ 8;
+  Duration? _settleOfflineState(PetProfile pet, DateTime now) {
+    if (now.isBefore(pet.lastSettlementAt)) {
+      pet.lastSettlementAt = now;
+      return null;
+    }
 
-    pet.mood = (pet.mood - moodDrops * 10).clamp(0, 100).toInt();
-    pet.hunger = (pet.hunger - hungerDrops * 15).clamp(0, 100).toInt();
-    pet.cleanliness = (pet.cleanliness - cleanDrops * 10).clamp(0, 100).toInt();
-    pet.lastActiveAt = now;
+    final offlineDuration = now.difference(pet.lastSettlementAt);
+    pet.lastSettlementAt = now;
+    if (offlineDuration < const Duration(minutes: 10)) {
+      return null;
+    }
+
+    final effective = offlineDuration > const Duration(hours: 24)
+        ? const Duration(hours: 24)
+        : offlineDuration;
+    final hours = effective.inMinutes / 60;
+    final hungerDecay = (hours * 3).floor();
+    final moodRate = pet.hunger < 50 ? 3 : 2;
+    final moodDecay = (hours * moodRate).floor();
+
+    pet.hunger = (pet.hunger - hungerDecay).clamp(30, 100).toInt();
+    pet.mood = (pet.mood - moodDecay).clamp(30, 100).toInt();
+    return offlineDuration;
+  }
+
+  bool _awardDailyReturnAffinity(PetProfile pet) {
+    if (pet.dailyFirstReturnDone || pet.affinityGainToday >= 3) return false;
+    final previousLevel = pet.affinityLevel;
+    pet.affinity += 1;
+    pet.affinityGainToday += 1;
+    pet.dailyFirstReturnDone = true;
+    return pet.affinityLevel > previousLevel;
+  }
+
+  bool _awardFeedAffinity(PetProfile pet, int previousLevel) {
+    if (pet.dailyFirstFeedDone || pet.affinityGainToday >= 3) return false;
+    pet.affinity += 1;
+    pet.affinityGainToday += 1;
+    pet.dailyFirstFeedDone = true;
+    return pet.affinityLevel > previousLevel;
+  }
+
+  bool _awardCaressAffinity(PetProfile pet, int previousLevel) {
+    if (pet.dailyFirstCaressDone || pet.affinityGainToday >= 3) return false;
+    pet.affinity += 1;
+    pet.affinityGainToday += 1;
+    pet.dailyFirstCaressDone = true;
+    return pet.affinityLevel > previousLevel;
+  }
+
+  void _refreshStatusText(PetProfile pet) {
     pet.statusText = _statusTextFor(pet);
   }
 
   String _statusTextFor(PetProfile pet) {
-    if (pet.hunger < 35) return 'A little hungry';
-    if (pet.cleanliness < 35) return 'Needs a bath';
-    if (pet.mood < 35) return 'Needs cuddles';
     if (pet.generationStatus == 'generating') return 'Generating final avatar';
-    return 'Feeling cozy';
+    return pet.mainStateText;
   }
 
-  String _welcomeBackBubble() {
+  String _welcomeBackBubble(Duration? offlineDuration) {
     final pet = currentPet;
     if (pet == null) return 'I missed you. Want to play?';
-    if (pet.hunger < 35) return 'I saved you a tiny hungry face.';
-    if (pet.cleanliness < 35) return 'Could we freshen up a little?';
-    if (pet.mood < 35) return 'I missed you more than usual today.';
-    return 'Welcome back. I kept your spot warm.';
+    if (offlineDuration == null) return pet.mainStateText;
+    return _returnTipText(pet, offlineDuration, DateTime.now());
+  }
+
+  void _showReturnTipIfNeeded(
+    PetProfile pet,
+    Duration offlineDuration,
+    DateTime now,
+  ) {
+    if (offlineDuration < const Duration(hours: 2)) return;
+    if (pet.returnTipShowCountToday >= 2) return;
+    pet.returnTipShowCountToday += 1;
+    _showRoomNotice(_returnTipText(pet, offlineDuration, now));
+  }
+
+  String _returnTipText(
+      PetProfile pet, Duration offlineDuration, DateTime now) {
+    if (now.hour >= 22 || now.hour < 6) {
+      return '${pet.name} was almost asleep, but noticed you came back.';
+    }
+    if (pet.hunger < 50) {
+      return '${pet.name} keeps looking at the bowl.';
+    }
+    if (pet.mood >= 80) {
+      return '${pet.name} looks excited that you are back.';
+    }
+    if (offlineDuration >= const Duration(hours: 12)) {
+      return '${pet.name} missed you a little.';
+    }
+    if (offlineDuration >= const Duration(hours: 6)) {
+      return '${pet.name} waited quietly for you.';
+    }
+    return '${pet.name} is happy to see you again.';
+  }
+
+  void _showAffinityLevelNotice(PetProfile pet) {
+    _showRoomNotice(
+      '${pet.name} feels closer to you. Affinity Lv.${pet.affinityLevel} unlocked.',
+    );
+  }
+
+  void _showRoomNotice(String message) {
+    roomNotice = message;
+    _noticeTimer?.cancel();
+    _noticeTimer = Timer(const Duration(seconds: 4), () {
+      roomNotice = null;
+      notifyListeners();
+    });
+  }
+
+  bool _isValidChatForStatus(String message, DateTime now) {
+    final text = message.trim();
+    if (text.length < 2) return false;
+    if (!_containsTextContent(text)) return false;
+    final previousText = _lastValidChatText;
+    final previousAt = _lastValidChatAt;
+    if (previousText != null &&
+        previousAt != null &&
+        previousText == text.toLowerCase() &&
+        now.difference(previousAt) < const Duration(seconds: 30)) {
+      return false;
+    }
+    _lastValidChatText = text.toLowerCase();
+    _lastValidChatAt = now;
+    return true;
+  }
+
+  bool _containsTextContent(String text) {
+    return RegExp(r'[A-Za-z0-9\u4e00-\u9fff]').hasMatch(text);
+  }
+
+  String _formatCooldown(Duration duration) {
+    final minutes = (duration.inSeconds / 60).ceil();
+    if (minutes <= 1) return '1m';
+    if (minutes < 60) return '${minutes}m';
+    final hours = minutes ~/ 60;
+    final rest = minutes % 60;
+    return rest == 0 ? '${hours}h' : '${hours}h ${rest}m';
   }
 
   String _mockReplyFor(String message) {
@@ -575,8 +842,8 @@ class PetPalController extends ChangeNotifier {
     return 'I heard you. Tell me one more tiny thing.';
   }
 
-  void _touch(PetProfile pet) {
-    pet.lastActiveAt = DateTime.now();
+  void _touch(PetProfile pet, {DateTime? now}) {
+    pet.lastActiveAt = now ?? DateTime.now();
   }
 
   Future<void> _saveCurrentPet() async {

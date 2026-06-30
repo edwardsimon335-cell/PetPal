@@ -12,20 +12,29 @@ class PetPalApp extends StatefulWidget {
   State<PetPalApp> createState() => _PetPalAppState();
 }
 
-class _PetPalAppState extends State<PetPalApp> {
+class _PetPalAppState extends State<PetPalApp> with WidgetsBindingObserver {
   late final PetPalController controller;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     controller = PetPalController();
     controller.restore();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      controller.onAppResumed();
+    }
   }
 
   @override

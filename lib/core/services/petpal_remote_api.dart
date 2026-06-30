@@ -61,12 +61,14 @@ class PetPalRemoteApi {
   Future<String> chatWithPet({
     required String petId,
     required String message,
+    PetProfile? pet,
   }) async {
     final response = await _client.functions.invoke(
       'chat-with-pet',
       body: {
         'petId': petId,
         'message': message,
+        if (pet != null) ..._statusPayload(pet),
       },
     );
     final data = Map<String, dynamic>.from(response.data as Map);
@@ -89,10 +91,7 @@ class PetPalRemoteApi {
         'sourcePhotoPath': pet.sourcePhotoPath,
         'personalityTags': pet.traits,
         'specialPersonalityDetail': pet.specialPersonalityDetail,
-        'mood': pet.mood,
-        'hunger': pet.hunger,
-        'cleanliness': pet.cleanliness,
-        'statusText': pet.statusText,
+        ..._statusPayload(pet),
         'generationStatus': pet.generationStatus,
       },
     );
@@ -105,6 +104,22 @@ class PetPalRemoteApi {
     int? hunger,
     int? cleanliness,
     String? statusText,
+    int? affinity,
+    int? affinityLevel,
+    DateTime? lastSettlementAt,
+    String? lastDailyResetDate,
+    DateTime? feedLastAt,
+    DateTime? caressLastAt,
+    int? feedEffectiveCountToday,
+    int? caressEffectiveCountToday,
+    int? chatMoodGainToday,
+    int? validChatCountToday,
+    int? affinityGainToday,
+    int? returnTipShowCountToday,
+    bool? dailyFirstFeedDone,
+    bool? dailyFirstCaressDone,
+    bool? dailyChatAffinityDone,
+    bool? dailyFirstReturnDone,
   }) async {
     await _client.functions.invoke(
       'update-pet-status',
@@ -114,7 +129,63 @@ class PetPalRemoteApi {
         if (hunger != null) 'hunger': hunger,
         if (cleanliness != null) 'cleanliness': cleanliness,
         if (statusText != null) 'statusText': statusText,
+        if (affinity != null) 'affinity': affinity,
+        if (affinityLevel != null) 'affinityLevel': affinityLevel,
+        if (lastSettlementAt != null)
+          'lastSettlementAt': lastSettlementAt.toIso8601String(),
+        if (lastDailyResetDate != null)
+          'lastDailyResetDate': lastDailyResetDate,
+        if (feedLastAt != null) 'feedLastAt': feedLastAt.toIso8601String(),
+        if (caressLastAt != null)
+          'caressLastAt': caressLastAt.toIso8601String(),
+        if (feedEffectiveCountToday != null)
+          'feedEffectiveCountToday': feedEffectiveCountToday,
+        if (caressEffectiveCountToday != null)
+          'caressEffectiveCountToday': caressEffectiveCountToday,
+        if (chatMoodGainToday != null) 'chatMoodGainToday': chatMoodGainToday,
+        if (validChatCountToday != null)
+          'validChatCountToday': validChatCountToday,
+        if (affinityGainToday != null) 'affinityGainToday': affinityGainToday,
+        if (returnTipShowCountToday != null)
+          'returnTipShowCountToday': returnTipShowCountToday,
+        if (dailyFirstFeedDone != null)
+          'dailyFirstFeedDone': dailyFirstFeedDone,
+        if (dailyFirstCaressDone != null)
+          'dailyFirstCaressDone': dailyFirstCaressDone,
+        if (dailyChatAffinityDone != null)
+          'dailyChatAffinityDone': dailyChatAffinityDone,
+        if (dailyFirstReturnDone != null)
+          'dailyFirstReturnDone': dailyFirstReturnDone,
       },
     );
+  }
+
+  Map<String, dynamic> _statusPayload(PetProfile pet) {
+    return {
+      'mood': pet.mood,
+      'hunger': pet.hunger,
+      'cleanliness': pet.cleanliness,
+      'statusText': pet.statusText,
+      'moodLevel': pet.moodLevel.name,
+      'hungerLevel': pet.hungerLevel.name,
+      'mainState': pet.mainState.name,
+      'affinity': pet.affinity,
+      'affinityLevel': pet.affinityLevel,
+      'lastSettlementAt': pet.lastSettlementAt.toIso8601String(),
+      'lastDailyResetDate': pet.lastDailyResetDate,
+      'feedLastAt': pet.feedLastAt?.toIso8601String(),
+      'caressLastAt': pet.caressLastAt?.toIso8601String(),
+      'feedEffectiveCountToday': pet.feedEffectiveCountToday,
+      'caressEffectiveCountToday': pet.caressEffectiveCountToday,
+      'chatMoodGainToday': pet.chatMoodGainToday,
+      'validChatCountToday': pet.validChatCountToday,
+      'affinityGainToday': pet.affinityGainToday,
+      'returnTipShowCountToday': pet.returnTipShowCountToday,
+      'dailyFirstFeedDone': pet.dailyFirstFeedDone,
+      'dailyFirstCaressDone': pet.dailyFirstCaressDone,
+      'dailyChatAffinityDone': pet.dailyChatAffinityDone,
+      'dailyFirstReturnDone': pet.dailyFirstReturnDone,
+      'localDate': petLocalDateKey(DateTime.now()),
+    };
   }
 }

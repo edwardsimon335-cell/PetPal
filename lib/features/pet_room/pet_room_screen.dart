@@ -118,28 +118,49 @@ class PetRoomScreen extends StatelessWidget {
                 ),
               ),
               Positioned(
-                top: 112,
+                top: 140,
                 left: 16,
-                width: 172,
-                child: Column(
-                  children: [
-                    PetStatusBar(
+                width: 190,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _showStatusDetails(context, controller),
+                  child: Column(
+                    children: [
+                      PetStatusBar(
                         value: pet.mood,
                         color: PetPalColors.heart,
-                        icon: Pixel.heart),
-                    const SizedBox(height: 9),
-                    PetStatusBar(
+                        icon: Pixel.moodhappy,
+                      ),
+                      const SizedBox(height: 8),
+                      PetStatusBar(
                         value: pet.hunger,
                         color: PetPalColors.honey,
-                        icon: Pixel.coffee),
-                    const SizedBox(height: 9),
-                    PetStatusBar(
+                        icon: Pixel.coffee,
+                      ),
+                      const SizedBox(height: 8),
+                      PetStatusBar(
+                        value: pet.affinityProgressPercent,
+                        color: const Color(0xFF9D74E8),
+                        icon: Pixel.heart,
+                        valueLabel: 'Lv.${pet.affinityLevel}',
+                      ),
+                      const SizedBox(height: 8),
+                      PetStatusBar(
                         value: pet.cleanliness,
                         color: PetPalColors.blue,
-                        icon: Pixel.drop),
-                  ],
+                        icon: Pixel.drop,
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              if (controller.roomNotice != null)
+                Positioned(
+                  top: 92,
+                  left: 18,
+                  right: 18,
+                  child: _RoomNotice(text: controller.roomNotice!),
+                ),
               // The pet wanders the floor, naps, and reacts to taps; its speech
               // bubble follows it. Fills the stage but only the pet body is
               // tappable, so the bars above/below stay interactive.
@@ -165,6 +186,228 @@ class PetRoomScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+void _showStatusDetails(BuildContext context, PetPalController controller) {
+  final pet = controller.currentPet;
+  if (pet == null) return;
+
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (context) {
+      final next = pet.nextAffinityRequirement;
+      final affinityDetail = next == null
+          ? 'Max level reached.'
+          : '${pet.affinity} / $next affinity';
+      return Container(
+        margin: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2D2117),
+          border: Border.all(color: const Color(0x55F7E9CD), width: 2),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0x77F7E9CD),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            const SizedBox(height: 14),
+            _StatusDetailRow(
+              icon: Pixel.moodhappy,
+              label: 'Mood',
+              value: '${pet.mood} / 100',
+              detail: pet.moodLevelText,
+              color: PetPalColors.heart,
+            ),
+            _StatusDetailRow(
+              icon: Pixel.coffee,
+              label: 'Hunger',
+              value: '${pet.hunger} / 100',
+              detail: pet.hungerLevelText,
+              color: PetPalColors.honey,
+            ),
+            _StatusDetailRow(
+              icon: Pixel.heart,
+              label: 'Affinity',
+              value: 'Lv.${pet.affinityLevel}',
+              detail: '${pet.affinityLevelName} - $affinityDetail',
+              color: const Color(0xFFB997FF),
+            ),
+            _StatusDetailRow(
+              icon: Pixel.drop,
+              label: 'Clean',
+              value: '${pet.cleanliness} / 100',
+              detail: 'Clean is kept from V1 and does not affect V1.1 mood.',
+              color: PetPalColors.blue,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Feed, caress, and chat to help ${pet.name} feel closer to you.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFFCDB895),
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+                letterSpacing: 0,
+              ),
+            ),
+            if (controller.feedCooldownLabel.isNotEmpty ||
+                controller.caressCooldownLabel.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                [
+                  if (controller.feedCooldownLabel.isNotEmpty)
+                    'Feed ${controller.feedCooldownLabel}',
+                  if (controller.caressCooldownLabel.isNotEmpty)
+                    'Caress ${controller.caressCooldownLabel}',
+                ].join('   '),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFFEAD9BC),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                  letterSpacing: 0,
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class _RoomNotice extends StatelessWidget {
+  const _RoomNotice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 310),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xEEFFFAF0),
+            border: Border.all(color: PetPalColors.line, width: 2),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: PetPalColors.softShadow.withValues(alpha: 0.22),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: PetPalColors.bark,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              height: 1.2,
+              letterSpacing: 0,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusDetailRow extends StatelessWidget {
+  const _StatusDetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.detail,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String detail;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0x18F7E9CD),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFFFFF7E6),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFCDB895),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFFEAD9BC),
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -211,7 +454,7 @@ class _InteractionBar extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: PixelButton(
-            label: 'Pet',
+            label: 'Caress',
             secondary: true,
             icon: const Icon(Pixel.moodhappy, size: 19),
             onPressed: controller.caress,

@@ -23,6 +23,34 @@ Deno.serve(async (req) => {
     if (typeof body?.hunger === 'number') updates.hunger_value = body.hunger;
     if (typeof body?.cleanliness === 'number') updates.clean_value = body.cleanliness;
     if (typeof body?.statusText === 'string') updates.current_status_text = body.statusText;
+    if (typeof body?.affinity === 'number') updates.affinity_value = body.affinity;
+    if (typeof body?.affinityLevel === 'number') updates.affinity_level = body.affinityLevel;
+    if (typeof body?.lastSettlementAt === 'string') updates.last_settlement_at = body.lastSettlementAt;
+    if (typeof body?.lastDailyResetDate === 'string') updates.last_daily_reset_date = body.lastDailyResetDate;
+    if (typeof body?.feedLastAt === 'string') updates.feed_last_at = body.feedLastAt;
+    if (typeof body?.caressLastAt === 'string') updates.caress_last_at = body.caressLastAt;
+    if (typeof body?.feedEffectiveCountToday === 'number') {
+      updates.feed_effective_count_today = body.feedEffectiveCountToday;
+    }
+    if (typeof body?.caressEffectiveCountToday === 'number') {
+      updates.caress_effective_count_today = body.caressEffectiveCountToday;
+    }
+    if (typeof body?.chatMoodGainToday === 'number') updates.chat_mood_gain_today = body.chatMoodGainToday;
+    if (typeof body?.validChatCountToday === 'number') updates.valid_chat_count_today = body.validChatCountToday;
+    if (typeof body?.affinityGainToday === 'number') updates.affinity_gain_today = body.affinityGainToday;
+    if (typeof body?.returnTipShowCountToday === 'number') {
+      updates.return_tip_show_count_today = body.returnTipShowCountToday;
+    }
+    if (typeof body?.dailyFirstFeedDone === 'boolean') updates.daily_first_feed_done = body.dailyFirstFeedDone;
+    if (typeof body?.dailyFirstCaressDone === 'boolean') {
+      updates.daily_first_caress_done = body.dailyFirstCaressDone;
+    }
+    if (typeof body?.dailyChatAffinityDone === 'boolean') {
+      updates.daily_chat_affinity_done = body.dailyChatAffinityDone;
+    }
+    if (typeof body?.dailyFirstReturnDone === 'boolean') {
+      updates.daily_first_return_done = body.dailyFirstReturnDone;
+    }
 
     const { data, error } = await admin
       .from('pets')
