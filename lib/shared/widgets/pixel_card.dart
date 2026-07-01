@@ -22,7 +22,8 @@ class PixelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final decoration = BoxDecoration(
+    final radius = BorderRadius.circular(18);
+    final fillDecoration = BoxDecoration(
       gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -34,7 +35,10 @@ class PixelCard extends StatelessWidget {
         color: selected ? PetPalColors.honey : PetPalColors.line,
         width: selected ? 3 : 2,
       ),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: radius,
+    );
+    final shadowDecoration = BoxDecoration(
+      borderRadius: radius,
       boxShadow: [
         BoxShadow(
           color:
@@ -47,15 +51,22 @@ class PixelCard extends StatelessWidget {
 
     return Container(
       margin: margin,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
+      decoration: shadowDecoration,
+      child: ClipRRect(
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: Material(
+          color: Colors.transparent,
           child: Ink(
-            padding: padding,
-            decoration: decoration,
-            child: child,
+            decoration: fillDecoration,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: radius,
+              child: Padding(
+                padding: padding,
+                child: child,
+              ),
+            ),
           ),
         ),
       ),

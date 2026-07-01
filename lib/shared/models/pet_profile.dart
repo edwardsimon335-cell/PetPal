@@ -46,15 +46,22 @@ class PetProfile {
     this.validChatCountToday = 0,
     this.affinityGainToday = 0,
     this.returnTipShowCountToday = 0,
+    this.offlineEventShowCountToday = 0,
+    List<String>? shownEventIdsToday,
+    List<String>? placedItemIds,
     this.dailyFirstFeedDone = false,
     this.dailyFirstCaressDone = false,
     this.dailyChatAffinityDone = false,
     this.dailyFirstReturnDone = false,
+    this.lastOfflineEventAt,
+    this.lastRoomItemUpdateAt,
   })  : createdAt = createdAt ?? DateTime.now(),
         lastActiveAt = lastActiveAt ?? DateTime.now(),
         lastSettlementAt = lastSettlementAt ?? lastActiveAt ?? DateTime.now(),
         lastDailyResetDate =
-            lastDailyResetDate ?? petLocalDateKey(DateTime.now());
+            lastDailyResetDate ?? petLocalDateKey(DateTime.now()),
+        shownEventIdsToday = shownEventIdsToday ?? <String>[],
+        placedItemIds = placedItemIds ?? <String>[];
 
   static const feedCooldown = Duration(minutes: 90);
   static const caressCooldown = Duration(minutes: 10);
@@ -86,10 +93,15 @@ class PetProfile {
   int validChatCountToday;
   int affinityGainToday;
   int returnTipShowCountToday;
+  int offlineEventShowCountToday;
+  List<String> shownEventIdsToday;
+  List<String> placedItemIds;
   bool dailyFirstFeedDone;
   bool dailyFirstCaressDone;
   bool dailyChatAffinityDone;
   bool dailyFirstReturnDone;
+  DateTime? lastOfflineEventAt;
+  DateTime? lastRoomItemUpdateAt;
 
   Color get bodyColor => role.body;
   Color get shadeColor => role.shade;
@@ -268,10 +280,15 @@ class PetProfile {
       'validChatCountToday': validChatCountToday,
       'affinityGainToday': affinityGainToday,
       'returnTipShowCountToday': returnTipShowCountToday,
+      'offlineEventShowCountToday': offlineEventShowCountToday,
+      'shownEventIdsToday': shownEventIdsToday,
+      'placedItemIds': placedItemIds,
       'dailyFirstFeedDone': dailyFirstFeedDone,
       'dailyFirstCaressDone': dailyFirstCaressDone,
       'dailyChatAffinityDone': dailyChatAffinityDone,
       'dailyFirstReturnDone': dailyFirstReturnDone,
+      'lastOfflineEventAt': lastOfflineEventAt?.toIso8601String(),
+      'lastRoomItemUpdateAt': lastRoomItemUpdateAt?.toIso8601String(),
     };
   }
 
@@ -323,10 +340,23 @@ class PetProfile {
       validChatCountToday: json['validChatCountToday'] as int? ?? 0,
       affinityGainToday: json['affinityGainToday'] as int? ?? 0,
       returnTipShowCountToday: json['returnTipShowCountToday'] as int? ?? 0,
+      offlineEventShowCountToday:
+          json['offlineEventShowCountToday'] as int? ?? 0,
+      shownEventIdsToday:
+          (json['shownEventIdsToday'] as List<dynamic>? ?? const [])
+              .whereType<String>()
+              .toList(),
+      placedItemIds: (json['placedItemIds'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(),
       dailyFirstFeedDone: json['dailyFirstFeedDone'] as bool? ?? false,
       dailyFirstCaressDone: json['dailyFirstCaressDone'] as bool? ?? false,
       dailyChatAffinityDone: json['dailyChatAffinityDone'] as bool? ?? false,
       dailyFirstReturnDone: json['dailyFirstReturnDone'] as bool? ?? false,
+      lastOfflineEventAt:
+          DateTime.tryParse(json['lastOfflineEventAt'] as String? ?? ''),
+      lastRoomItemUpdateAt:
+          DateTime.tryParse(json['lastRoomItemUpdateAt'] as String? ?? ''),
     );
   }
 }

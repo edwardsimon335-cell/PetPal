@@ -41,6 +41,15 @@ Deno.serve(async (req) => {
     if (typeof body?.returnTipShowCountToday === 'number') {
       updates.return_tip_show_count_today = body.returnTipShowCountToday;
     }
+    if (typeof body?.offlineEventShowCountToday === 'number') {
+      updates.offline_event_show_count_today = body.offlineEventShowCountToday;
+    }
+    if (Array.isArray(body?.shownEventIdsToday)) {
+      updates.shown_event_ids_today = body.shownEventIdsToday.filter((item: unknown) => typeof item === 'string');
+    }
+    if (Array.isArray(body?.placedItemIds)) {
+      updates.placed_item_ids = body.placedItemIds.filter((item: unknown) => typeof item === 'string');
+    }
     if (typeof body?.dailyFirstFeedDone === 'boolean') updates.daily_first_feed_done = body.dailyFirstFeedDone;
     if (typeof body?.dailyFirstCaressDone === 'boolean') {
       updates.daily_first_caress_done = body.dailyFirstCaressDone;
@@ -50,6 +59,10 @@ Deno.serve(async (req) => {
     }
     if (typeof body?.dailyFirstReturnDone === 'boolean') {
       updates.daily_first_return_done = body.dailyFirstReturnDone;
+    }
+    if (typeof body?.lastOfflineEventAt === 'string') updates.last_offline_event_at = body.lastOfflineEventAt;
+    if (typeof body?.lastRoomItemUpdateAt === 'string') {
+      updates.last_room_item_update_at = body.lastRoomItemUpdateAt;
     }
 
     const { data, error } = await admin

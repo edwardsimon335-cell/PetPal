@@ -26,6 +26,7 @@ flutter:
   assets:
     - assets/backgrounds/
     - assets/branding/
+    - assets/room_items/
     - assets/pets/nuonuo/nuonuo_idle.png
     - assets/pets/nuonuo/nuonuo_walk.png
     - assets/pets/nuonuo/nuonuo_sleep.png

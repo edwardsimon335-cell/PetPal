@@ -4,29 +4,45 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'offline_event_engine.dart';
 import '../core/services/petpal_backend.dart';
 import '../core/services/petpal_remote_api.dart';
 import '../shared/models/chat_message.dart';
 import '../shared/models/pet_activity.dart';
 import '../shared/models/pet_profile.dart';
+import '../shared/models/petpal_v12_models.dart';
 import '../shared/models/preset_role.dart';
 import '../shared/repositories/mock_pet_repository.dart';
+import '../shared/repositories/petpal_v12_seed_repository.dart';
 
 class PetPalController extends ChangeNotifier {
   PetPalController({
     MockPetRepository repository = const MockPetRepository(),
+    PetPalV12SeedRepository seedRepository = const PetPalV12SeedRepository(),
+    OfflineEventEngine? offlineEventEngine,
     PetPalRemoteApi? remoteApi,
   })  : _repository = repository,
+        _seedRepository = seedRepository,
+        _offlineEventEngine = offlineEventEngine ?? OfflineEventEngine(),
         _remoteApi = remoteApi {
     roles = _repository.presetRoles();
   }
 
   static const _petStorageKey = 'petpal.current_pet.v1';
   static const _messagesStorageKey = 'petpal.messages.v1';
+  static const _momentsStorageKey = 'petpal.moments.v1';
+  static const _momentAssetsStorageKey = 'petpal.moment_assets.v1';
+  static const _pendingMomentEventsStorageKey =
+      'petpal.pending_moment_events.v1';
+  static const _offlineEventHistoryStorageKey =
+      'petpal.offline_event_history.v1';
   static const _maxStoredMessages = 200;
+  static const _maxOfflineEventHistory = 200;
   static const _replyTimeout = Duration(seconds: 20);
 
   final MockPetRepository _repository;
+  final PetPalV12SeedRepository _seedRepository;
+  final OfflineEventEngine _offlineEventEngine;
   final PetPalRemoteApi? _remoteApi;
 
   late final List<PresetRole> roles;
@@ -40,10 +56,16 @@ class PetPalController extends ChangeNotifier {
   bool chatBusy = false;
   bool isReady = false;
   String? roomNotice;
+  OfflineEventOccurrence? pendingAwayEvent;
+  bool awayEventSaving = false;
 
   /// Full conversation history, shared by the main-screen dialogue overlay and
   /// the chat history window (spec 3.3 / 3.4). Oldest first.
   final List<ChatMessage> messages = [];
+  final List<UserMomentRecord> userMoments = [];
+  final List<MomentAsset> momentAssets = [];
+  final List<PendingMomentEvent> pendingMomentEvents = [];
+  final List<OfflineEventHistory> offlineEventHistory = [];
 
   /// True while the pet is composing a reply — drives the "thinking" bubble.
   bool petThinking = false;
@@ -62,6 +84,47 @@ class PetPalController extends ChangeNotifier {
   Timer? _noticeTimer;
   String? _lastValidChatText;
   DateTime? _lastValidChatAt;
+  bool _processingMomentImages = false;
+
+  List<RoomItemConfig> get roomItems {
+    final pet = currentPet;
+    final items = _seedRepository.roomItems()
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    if (pet == null) return items.where((item) => item.enabled).toList();
+    return items
+        .where(
+            (item) => item.enabled && !item.archived && item.supportsPet(pet))
+        .toList();
+  }
+
+  List<RoomItemConfig> get placedRoomItems {
+    final pet = currentPet;
+    if (pet == null) return const [];
+    final byId = {for (final item in roomItems) item.itemId: item};
+    return pet.placedItemIds
+        .map((id) => byId[id])
+        .whereType<RoomItemConfig>()
+        .toList();
+  }
+
+  List<UserMomentRecord> visibleMoments(
+      {MomentFilter filter = MomentFilter.all}) {
+    final moments = userMoments.where((record) => !record.isDeleted).where(
+      (record) {
+        switch (filter) {
+          case MomentFilter.home:
+            return record.momentTypeSnapshot == 'home' ||
+                record.momentTypeSnapshot == 'dream';
+          case MomentFilter.special:
+            return record.momentTypeSnapshot == 'special';
+          case MomentFilter.all:
+            return true;
+        }
+      },
+    ).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return moments;
+  }
 
   String get feedCooldownLabel {
     final pet = currentPet;
@@ -136,6 +199,10 @@ class PetPalController extends ChangeNotifier {
   Future<void> restore() async {
     final prefs = await SharedPreferences.getInstance();
     _restoreMessages(prefs);
+    _restoreMoments(prefs);
+    _restoreMomentAssets(prefs);
+    _restorePendingMomentEvents(prefs);
+    _restoreOfflineEventHistory(prefs);
     final rawPet = prefs.getString(_petStorageKey);
     if (rawPet != null) {
       final json = jsonDecode(rawPet) as Map<String, dynamic>;
@@ -166,13 +233,15 @@ class PetPalController extends ChangeNotifier {
     final offlineDuration = _settleOfflineState(pet, currentTime);
     final leveledUp = _awardDailyReturnAffinity(pet);
     _refreshStatusText(pet);
-    latestBubble = _welcomeBackBubble(offlineDuration);
+    pendingAwayEvent =
+        _readyPendingMomentOccurrenceIfNeeded(pet, currentTime) ??
+            _createOfflineEventIfNeeded(pet, offlineDuration, currentTime);
+    latestBubble =
+        pendingAwayEvent?.body ?? _welcomeBackBubble(offlineDuration);
     _touch(pet, now: currentTime);
     unawaited(_saveCurrentPet());
+    if (pendingAwayEvent == null) unawaited(_processPendingMomentImages());
     if (leveledUp) _showAffinityLevelNotice(pet);
-    if (offlineDuration != null) {
-      _showReturnTipIfNeeded(pet, offlineDuration, currentTime);
-    }
     notifyListeners();
   }
 
@@ -349,6 +418,94 @@ class PetPalController extends ChangeNotifier {
   /// (spec 3.5 "点击宠物本体").
   void pokePet() {
     caress();
+  }
+
+  bool toggleRoomItem(RoomItemConfig item) {
+    final pet = currentPet;
+    if (pet == null) return false;
+    if (!item.isUnlocked(pet)) {
+      _showRoomNotice(
+        'Reach Affinity Lv.${item.unlockAffinityLevel} to unlock ${item.itemName}.',
+      );
+      return false;
+    }
+    final placed = pet.placedItemIds;
+    if (placed.contains(item.itemId)) {
+      placed.remove(item.itemId);
+    } else {
+      if (placed.length >= 3) {
+        _showRoomNotice('You can place up to 3 items for now.');
+        return false;
+      }
+      placed.add(item.itemId);
+    }
+    pet.lastRoomItemUpdateAt = DateTime.now();
+    _touch(pet, now: pet.lastRoomItemUpdateAt);
+    _saveCurrentPet();
+    unawaited(_syncPetStatus(pet));
+    notifyListeners();
+    return true;
+  }
+
+  void dismissAwayEvent() {
+    if (pendingAwayEvent == null) return;
+    pendingAwayEvent = null;
+    awayEventSaving = false;
+    notifyListeners();
+  }
+
+  Future<UserMomentRecord?> savePendingMoment() async {
+    final occurrence = pendingAwayEvent;
+    final pet = currentPet;
+    final moment = occurrence?.moment;
+    if (occurrence == null || pet == null || moment == null) return null;
+    if (!occurrence.canSaveMoment || _hasActiveMoment(moment.momentId)) {
+      dismissAwayEvent();
+      return null;
+    }
+
+    awayEventSaving = true;
+    notifyListeners();
+    final now = DateTime.now();
+    final record = UserMomentRecord(
+      momentRecordId: _localId('moment'),
+      momentId: moment.momentId,
+      petId: _petRecordId(pet),
+      sourceEventId: occurrence.config.eventId,
+      titleSnapshot: _fillTemplate(moment.title, pet, occurrence.config),
+      diaryTextSnapshot:
+          _fillTemplate(moment.diaryTemplate, pet, occurrence.config),
+      imageUrlSnapshot: occurrence.imageUrl ??
+          moment.imageUrl ??
+          moment.defaultImageUrl ??
+          '',
+      momentTypeSnapshot: moment.momentType,
+      createdAt: now,
+    );
+
+    userMoments.add(record);
+    occurrence.history
+      ..momentSaved = true
+      ..momentRecordId = record.momentRecordId;
+    await _saveMoments();
+    await _saveOfflineEventHistory();
+    if (PetPalBackend.isEnabled) {
+      unawaited(_syncMomentRecord(record, occurrence.history));
+    }
+    pendingAwayEvent = null;
+    awayEventSaving = false;
+    notifyListeners();
+    return record;
+  }
+
+  Future<void> deleteMoment(UserMomentRecord record) async {
+    if (record.isDeleted) return;
+    record.deletedAt = DateTime.now();
+    await _saveMoments();
+    if (PetPalBackend.isEnabled) {
+      unawaited(_deleteRemoteMoment(record));
+    }
+    notifyListeners();
   }
 
   /// Adds a pet line triggered by an interaction button so it shows in the
@@ -649,10 +806,15 @@ class PetPalController extends ChangeNotifier {
         validChatCountToday: pet.validChatCountToday,
         affinityGainToday: pet.affinityGainToday,
         returnTipShowCountToday: pet.returnTipShowCountToday,
+        offlineEventShowCountToday: pet.offlineEventShowCountToday,
+        shownEventIdsToday: pet.shownEventIdsToday,
+        placedItemIds: pet.placedItemIds,
         dailyFirstFeedDone: pet.dailyFirstFeedDone,
         dailyFirstCaressDone: pet.dailyFirstCaressDone,
         dailyChatAffinityDone: pet.dailyChatAffinityDone,
         dailyFirstReturnDone: pet.dailyFirstReturnDone,
+        lastOfflineEventAt: pet.lastOfflineEventAt,
+        lastRoomItemUpdateAt: pet.lastRoomItemUpdateAt,
       );
     } catch (error) {
       debugPrint('PetPalController: status sync failed: $error');
@@ -677,6 +839,8 @@ class PetPalController extends ChangeNotifier {
     pet.validChatCountToday = 0;
     pet.affinityGainToday = 0;
     pet.returnTipShowCountToday = 0;
+    pet.offlineEventShowCountToday = 0;
+    pet.shownEventIdsToday.clear();
     pet.dailyFirstFeedDone = false;
     pet.dailyFirstCaressDone = false;
     pet.dailyChatAffinityDone = false;
@@ -707,6 +871,403 @@ class PetPalController extends ChangeNotifier {
     pet.hunger = (pet.hunger - hungerDecay).clamp(30, 100).toInt();
     pet.mood = (pet.mood - moodDecay).clamp(30, 100).toInt();
     return offlineDuration;
+  }
+
+  OfflineEventOccurrence? _createOfflineEventIfNeeded(
+    PetProfile pet,
+    Duration? offlineDuration,
+    DateTime now,
+  ) {
+    if (offlineDuration == null) return null;
+    if (offlineDuration < const Duration(hours: 2)) return null;
+    if (now.difference(pet.createdAt) < const Duration(hours: 2)) return null;
+    if (pet.offlineEventShowCountToday >= 3) return null;
+    if (pendingAwayEvent != null || awayEventSaving) return null;
+
+    final events = _seedRepository.offlineEvents();
+    final moments = _seedRepository.moments();
+    final event = _offlineEventEngine.selectEvent(
+      pet: pet,
+      offlineDuration: offlineDuration,
+      now: now,
+      events: events,
+      moments: moments,
+      savedMoments: userMoments,
+      history: offlineEventHistory,
+    );
+    if (event == null) return null;
+
+    MomentConfig? availableMoment;
+    String? imageUrl;
+    if (event.canUnlockMoment && event.momentId != null) {
+      final moment = _momentById(event.momentId!);
+      if (moment != null &&
+          moment.enabled &&
+          !moment.archived &&
+          !_hasActiveMoment(moment.momentId)) {
+        availableMoment = moment;
+        imageUrl = _readyMomentImageUrlFor(pet, moment);
+        if (imageUrl == null) {
+          _queuePendingMomentEvent(
+            pet: pet,
+            event: event,
+            moment: moment,
+            offlineDuration: offlineDuration,
+            now: now,
+          );
+          unawaited(_processPendingMomentImages());
+          return null;
+        }
+      }
+    }
+
+    return _createVisibleOfflineOccurrence(
+      pet: pet,
+      event: event,
+      now: now,
+      offlineDurationMinutes: offlineDuration.inMinutes,
+      moodBefore: pet.mood,
+      hungerBefore: pet.hunger,
+      affinityBefore: pet.affinity,
+      placedItemIdsSnapshot: List.of(pet.placedItemIds),
+      moment: availableMoment,
+      imageUrl: imageUrl,
+    );
+  }
+
+  OfflineEventOccurrence? _readyPendingMomentOccurrenceIfNeeded(
+    PetProfile pet,
+    DateTime now,
+  ) {
+    if (pet.offlineEventShowCountToday >= 3) return null;
+    if (pendingAwayEvent != null || awayEventSaving) return null;
+    final petIds = _petRecordIds(pet);
+    for (final pending in List<PendingMomentEvent>.of(pendingMomentEvents)) {
+      if (!petIds.contains(pending.petId)) continue;
+      final event = _eventById(pending.eventId);
+      final moment = _momentById(pending.momentId);
+      if (event == null ||
+          moment == null ||
+          _hasActiveMoment(moment.momentId)) {
+        pendingMomentEvents.remove(pending);
+        unawaited(_savePendingMomentEvents());
+        continue;
+      }
+      if (!pending.isReady) {
+        final imageUrl = _readyMomentImageUrlFor(pet, moment);
+        if (imageUrl == null) continue;
+        pending
+          ..imageUrl = imageUrl
+          ..generationStatus = 'ready';
+        unawaited(_savePendingMomentEvents());
+      }
+      if (pet.shownEventIdsToday.contains(pending.eventId)) continue;
+      return _createVisibleOfflineOccurrence(
+        pet: pet,
+        event: event,
+        now: now,
+        offlineDurationMinutes: pending.offlineDurationMinutes,
+        moodBefore: pending.moodBefore,
+        hungerBefore: pending.hungerBefore,
+        affinityBefore: pending.affinityBefore,
+        placedItemIdsSnapshot: pending.placedItemIdsSnapshot,
+        moment: moment,
+        imageUrl: pending.imageUrl,
+        pending: pending,
+      );
+    }
+    return null;
+  }
+
+  OfflineEventOccurrence _createVisibleOfflineOccurrence({
+    required PetProfile pet,
+    required OfflineEventConfig event,
+    required DateTime now,
+    required int offlineDurationMinutes,
+    required int moodBefore,
+    required int hungerBefore,
+    required int affinityBefore,
+    required List<String> placedItemIdsSnapshot,
+    MomentConfig? moment,
+    String? imageUrl,
+    PendingMomentEvent? pending,
+  }) {
+    pet.mood = (pet.mood + event.rewardMood).clamp(0, 100).toInt();
+    pet.hunger = (pet.hunger + event.rewardHunger).clamp(0, 100).toInt();
+    pet.affinity += event.rewardAffinity;
+    pet.offlineEventShowCountToday += 1;
+    pet.shownEventIdsToday.add(event.eventId);
+    pet.lastOfflineEventAt = now;
+    _refreshStatusText(pet);
+
+    final history = OfflineEventHistory(
+      historyId: _localId('away'),
+      petId: _petRecordId(pet),
+      eventId: event.eventId,
+      eventType: event.eventType,
+      triggeredAt: pending?.triggeredAt ?? now,
+      offlineDurationMinutes: offlineDurationMinutes,
+      moodBefore: moodBefore,
+      hungerBefore: hungerBefore,
+      affinityBefore: affinityBefore,
+      moodAfter: pet.mood,
+      hungerAfter: pet.hunger,
+      affinityAfter: pet.affinity,
+      placedItemIdsSnapshot: placedItemIdsSnapshot,
+    );
+    offlineEventHistory.add(history);
+    _trimAndSaveOfflineEventHistory();
+
+    final rewardLabels = <String>[
+      if (event.rewardMood > 0) 'Mood +${event.rewardMood}',
+      if (event.rewardHunger > 0) 'Hunger +${event.rewardHunger}',
+      if (event.rewardAffinity > 0) 'Affinity +${event.rewardAffinity}',
+      if (moment != null) 'New Moment',
+    ];
+
+    if (pending != null) {
+      pendingMomentEvents.remove(pending);
+      unawaited(_savePendingMomentEvents());
+    }
+    if (PetPalBackend.isEnabled) {
+      unawaited(_syncOfflineEventHistory(history));
+    }
+
+    return OfflineEventOccurrence(
+      config: event,
+      history: history,
+      moment: moment,
+      title: _fillTemplate(event.titleTemplate, pet, event),
+      body: _fillTemplate(event.bodyTemplate, pet, event),
+      rewardLabels: rewardLabels,
+      imageKey: event.imageKey,
+      imageUrl: imageUrl,
+    );
+  }
+
+  MomentConfig? _momentById(String momentId) {
+    for (final moment in _seedRepository.moments()) {
+      if (moment.momentId == momentId) return moment;
+    }
+    return null;
+  }
+
+  bool _hasActiveMoment(String momentId) {
+    return userMoments.any(
+      (record) => record.momentId == momentId && !record.isDeleted,
+    );
+  }
+
+  OfflineEventConfig? _eventById(String eventId) {
+    for (final event in _seedRepository.offlineEvents()) {
+      if (event.eventId == eventId) return event;
+    }
+    return null;
+  }
+
+  String? _readyMomentImageUrlFor(PetProfile pet, MomentConfig moment) {
+    final petIds = _petRecordIds(pet);
+    for (final asset in momentAssets) {
+      if (asset.momentId == moment.momentId &&
+          asset.petId != null &&
+          petIds.contains(asset.petId) &&
+          asset.isReady) {
+        return asset.imageUrl;
+      }
+    }
+    for (final asset in momentAssets) {
+      if (asset.momentId == moment.momentId &&
+          asset.roleId == pet.role.id &&
+          asset.isReady) {
+        return asset.imageUrl;
+      }
+    }
+    return moment.imageUrl ?? moment.defaultImageUrl;
+  }
+
+  void _queuePendingMomentEvent({
+    required PetProfile pet,
+    required OfflineEventConfig event,
+    required MomentConfig moment,
+    required Duration offlineDuration,
+    required DateTime now,
+  }) {
+    final petId = _petRecordId(pet);
+    final exists = pendingMomentEvents.any(
+      (pending) =>
+          _petRecordIds(pet).contains(pending.petId) &&
+          pending.eventId == event.eventId &&
+          pending.momentId == moment.momentId,
+    );
+    if (exists) return;
+    pendingMomentEvents.add(
+      PendingMomentEvent(
+        pendingId: _localId('pending-moment'),
+        petId: petId,
+        eventId: event.eventId,
+        momentId: moment.momentId,
+        triggeredAt: now,
+        offlineDurationMinutes: offlineDuration.inMinutes,
+        moodBefore: pet.mood,
+        hungerBefore: pet.hunger,
+        affinityBefore: pet.affinity,
+        placedItemIdsSnapshot: List.of(pet.placedItemIds),
+      ),
+    );
+    unawaited(_savePendingMomentEvents());
+  }
+
+  Future<void> _processPendingMomentImages() async {
+    if (_processingMomentImages || !PetPalBackend.isEnabled) return;
+    final pet = currentPet;
+    if (pet == null || pendingMomentEvents.isEmpty) return;
+    _processingMomentImages = true;
+    try {
+      if (pet.remotePetId == null) await _syncCurrentPet();
+      if (pet.remotePetId == null) return;
+      final petIds = _petRecordIds(pet);
+      for (final pending in List<PendingMomentEvent>.of(pendingMomentEvents)) {
+        if (!petIds.contains(pending.petId) || pending.isReady) continue;
+        final lastAttempt = pending.lastAttemptAt;
+        final now = DateTime.now();
+        if (lastAttempt != null &&
+            now.difference(lastAttempt) < const Duration(seconds: 30)) {
+          continue;
+        }
+        final event = _eventById(pending.eventId);
+        final moment = _momentById(pending.momentId);
+        if (event == null || moment == null) {
+          pendingMomentEvents.remove(pending);
+          continue;
+        }
+        final staticUrl = _readyMomentImageUrlFor(pet, moment);
+        if (staticUrl != null) {
+          pending
+            ..imageUrl = staticUrl
+            ..generationStatus = 'ready';
+          continue;
+        }
+
+        pending
+          ..generationStatus = 'generating'
+          ..lastAttemptAt = now;
+        await _savePendingMomentEvents();
+        try {
+          final title = _fillTemplate(event.titleTemplate, pet, event);
+          final body = _fillTemplate(event.bodyTemplate, pet, event);
+          final diary = _fillTemplate(moment.diaryTemplate, pet, event);
+          final payload =
+              await (_remoteApi ?? PetPalRemoteApi()).generateMomentImage(
+            petId: pet.remotePetId!,
+            pet: pet,
+            event: event,
+            moment: moment,
+            title: title,
+            body: body,
+            diaryText: diary,
+            pendingId: pending.pendingId,
+          );
+          final asset = _momentAssetFromPayload(
+            payload['asset'],
+            fallbackMomentId: moment.momentId,
+            fallbackPetId: pet.remotePetId!,
+          );
+          if (asset == null || !asset.isReady) {
+            pending.generationStatus = 'failed';
+            continue;
+          }
+          _upsertMomentAsset(asset);
+          pending
+            ..imageUrl = asset.imageUrl
+            ..generationStatus = 'ready'
+            ..generationTaskId = payload['taskId'] as String?;
+          if (pendingAwayEvent == null) {
+            pendingAwayEvent =
+                _readyPendingMomentOccurrenceIfNeeded(pet, DateTime.now());
+            if (pendingAwayEvent != null) {
+              latestBubble = pendingAwayEvent!.body;
+              notifyListeners();
+              break;
+            }
+          }
+        } catch (error) {
+          debugPrint(
+              'PetPalController: moment image generation failed: $error');
+          pending.generationStatus = 'pending';
+        }
+      }
+    } finally {
+      _processingMomentImages = false;
+      await _saveMomentAssets();
+      await _savePendingMomentEvents();
+    }
+  }
+
+  MomentAsset? _momentAssetFromPayload(
+    Object? raw, {
+    required String fallbackMomentId,
+    required String fallbackPetId,
+  }) {
+    if (raw is! Map) return null;
+    final map = Map<String, dynamic>.from(raw);
+    final imageUrl = (map['imageUrl'] ?? map['image_url']) as String?;
+    if (imageUrl == null || imageUrl.isEmpty) return null;
+    return MomentAsset(
+      assetId:
+          (map['assetId'] ?? map['asset_id']) as String? ?? _localId('asset'),
+      momentId:
+          (map['momentId'] ?? map['moment_id']) as String? ?? fallbackMomentId,
+      imageUrl: imageUrl,
+      sourceType: (map['sourceType'] ?? map['source_type']) as String? ?? 'ai',
+      petId: (map['petId'] ?? map['pet_id']) as String? ?? fallbackPetId,
+      roleId: (map['roleId'] ?? map['role_id']) as String?,
+      thumbnailUrl: (map['thumbnailUrl'] ?? map['thumbnail_url']) as String?,
+      status: map['status'] as String? ?? 'ready',
+      createdAt: DateTime.tryParse(map['createdAt'] as String? ?? '') ??
+          DateTime.now(),
+    );
+  }
+
+  void _upsertMomentAsset(MomentAsset asset) {
+    final index = momentAssets.indexWhere((item) =>
+        item.assetId == asset.assetId ||
+        (item.petId == asset.petId && item.momentId == asset.momentId));
+    if (index >= 0) {
+      momentAssets[index] = asset;
+    } else {
+      momentAssets.add(asset);
+    }
+  }
+
+  String _fillTemplate(
+    String template,
+    PetProfile pet,
+    OfflineEventConfig event,
+  ) {
+    return template
+        .replaceAll('{pet_name}', pet.name)
+        .replaceAll('{item_name}', _itemNameFor(event))
+        .replaceAll(
+            '{time_period}', OfflineEventEngine.timeWindowFor(DateTime.now()))
+        .replaceAll('{pronoun}', 'they');
+  }
+
+  String _itemNameFor(OfflineEventConfig event) {
+    var itemId = event.requiredItem;
+    final placed = currentPet?.placedItemIds ?? const <String>[];
+    if (itemId == null) {
+      for (final relatedId in event.relatedItems) {
+        if (placed.contains(relatedId)) {
+          itemId = relatedId;
+          break;
+        }
+      }
+    }
+    if (itemId == null) return 'their favorite spot';
+    for (final item in _seedRepository.roomItems()) {
+      if (item.itemId == itemId) return item.itemName;
+    }
+    return 'their favorite spot';
   }
 
   bool _awardDailyReturnAffinity(PetProfile pet) {
@@ -748,17 +1309,6 @@ class PetPalController extends ChangeNotifier {
     if (pet == null) return 'I missed you. Want to play?';
     if (offlineDuration == null) return pet.mainStateText;
     return _returnTipText(pet, offlineDuration, DateTime.now());
-  }
-
-  void _showReturnTipIfNeeded(
-    PetProfile pet,
-    Duration offlineDuration,
-    DateTime now,
-  ) {
-    if (offlineDuration < const Duration(hours: 2)) return;
-    if (pet.returnTipShowCountToday >= 2) return;
-    pet.returnTipShowCountToday += 1;
-    _showRoomNotice(_returnTipText(pet, offlineDuration, now));
   }
 
   String _returnTipText(
@@ -846,11 +1396,180 @@ class PetPalController extends ChangeNotifier {
     pet.lastActiveAt = now ?? DateTime.now();
   }
 
+  String _petRecordId(PetProfile pet) {
+    return pet.remotePetId ?? 'local-${pet.createdAt.millisecondsSinceEpoch}';
+  }
+
+  List<String> _petRecordIds(PetProfile pet) {
+    return [
+      if (pet.remotePetId != null) pet.remotePetId!,
+      'local-${pet.createdAt.millisecondsSinceEpoch}',
+    ];
+  }
+
+  String _localId(String prefix) {
+    return '$prefix-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  void _restoreMoments(SharedPreferences prefs) {
+    final raw = prefs.getString(_momentsStorageKey);
+    if (raw == null) return;
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      userMoments
+        ..clear()
+        ..addAll(
+          list.map((item) => UserMomentRecord.fromJson(
+                Map<String, dynamic>.from(item as Map),
+              )),
+        );
+    } catch (error) {
+      debugPrint('PetPalController: moments restore failed: $error');
+    }
+  }
+
+  void _restoreMomentAssets(SharedPreferences prefs) {
+    final raw = prefs.getString(_momentAssetsStorageKey);
+    if (raw == null) return;
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      momentAssets
+        ..clear()
+        ..addAll(
+          list.map((item) => MomentAsset.fromJson(
+                Map<String, dynamic>.from(item as Map),
+              )),
+        );
+    } catch (error) {
+      debugPrint('PetPalController: moment assets restore failed: $error');
+    }
+  }
+
+  void _restorePendingMomentEvents(SharedPreferences prefs) {
+    final raw = prefs.getString(_pendingMomentEventsStorageKey);
+    if (raw == null) return;
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      pendingMomentEvents
+        ..clear()
+        ..addAll(
+          list.map((item) => PendingMomentEvent.fromJson(
+                Map<String, dynamic>.from(item as Map),
+              )),
+        );
+    } catch (error) {
+      debugPrint('PetPalController: pending moments restore failed: $error');
+    }
+  }
+
+  void _restoreOfflineEventHistory(SharedPreferences prefs) {
+    final raw = prefs.getString(_offlineEventHistoryStorageKey);
+    if (raw == null) return;
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      offlineEventHistory
+        ..clear()
+        ..addAll(
+          list.map((item) => OfflineEventHistory.fromJson(
+                Map<String, dynamic>.from(item as Map),
+              )),
+        );
+    } catch (error) {
+      debugPrint('PetPalController: offline history restore failed: $error');
+    }
+  }
+
   Future<void> _saveCurrentPet() async {
     final pet = currentPet;
     if (pet == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_petStorageKey, jsonEncode(pet.toJson()));
+  }
+
+  Future<void> _saveMoments() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded =
+        jsonEncode(userMoments.map((record) => record.toJson()).toList());
+    await prefs.setString(_momentsStorageKey, encoded);
+  }
+
+  Future<void> _saveMomentAssets() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded =
+        jsonEncode(momentAssets.map((asset) => asset.toJson()).toList());
+    await prefs.setString(_momentAssetsStorageKey, encoded);
+  }
+
+  Future<void> _savePendingMomentEvents() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(
+        pendingMomentEvents.map((pending) => pending.toJson()).toList());
+    await prefs.setString(_pendingMomentEventsStorageKey, encoded);
+  }
+
+  void _trimAndSaveOfflineEventHistory() {
+    if (offlineEventHistory.length > _maxOfflineEventHistory) {
+      offlineEventHistory.removeRange(
+        0,
+        offlineEventHistory.length - _maxOfflineEventHistory,
+      );
+    }
+    unawaited(_saveOfflineEventHistory());
+  }
+
+  Future<void> _saveOfflineEventHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded =
+        jsonEncode(offlineEventHistory.map((item) => item.toJson()).toList());
+    await prefs.setString(_offlineEventHistoryStorageKey, encoded);
+  }
+
+  Future<void> _syncMomentRecord(
+    UserMomentRecord record,
+    OfflineEventHistory history,
+  ) async {
+    try {
+      final pet = currentPet;
+      if (pet == null) return;
+      if (pet.remotePetId == null) await _syncCurrentPet();
+      if (pet.remotePetId == null) return;
+      await (_remoteApi ?? PetPalRemoteApi()).saveMomentRecord(
+        petId: pet.remotePetId!,
+        record: record,
+        history: history,
+      );
+    } catch (error) {
+      debugPrint('PetPalController: moment sync failed: $error');
+    }
+  }
+
+  Future<void> _syncOfflineEventHistory(OfflineEventHistory history) async {
+    try {
+      final pet = currentPet;
+      if (pet == null) return;
+      if (pet.remotePetId == null) await _syncCurrentPet();
+      if (pet.remotePetId == null) return;
+      await (_remoteApi ?? PetPalRemoteApi()).saveOfflineEventHistory(
+        petId: pet.remotePetId!,
+        history: history,
+      );
+    } catch (error) {
+      debugPrint('PetPalController: offline event sync failed: $error');
+    }
+  }
+
+  Future<void> _deleteRemoteMoment(UserMomentRecord record) async {
+    try {
+      final pet = currentPet;
+      if (pet?.remotePetId == null) return;
+      await (_remoteApi ?? PetPalRemoteApi()).deleteMomentRecord(
+        petId: pet!.remotePetId!,
+        momentRecordId: record.momentRecordId,
+        deletedAt: record.deletedAt ?? DateTime.now(),
+      );
+    } catch (error) {
+      debugPrint('PetPalController: moment delete sync failed: $error');
+    }
   }
 
   void _restoreMessages(SharedPreferences prefs) {

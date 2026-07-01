@@ -1,20 +1,66 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:pixelarticons/pixelarticons.dart';
 
 import '../../app/page_transitions.dart';
 import '../../app/petpal_controller.dart';
+import '../../core/constants/app_assets.dart';
 import '../../core/theme/petpal_theme.dart';
 import '../../shared/widgets/pixel_button.dart';
 import '../../shared/widgets/pixel_card.dart';
 import '../../shared/widgets/pixel_page_scaffold.dart';
 import '../../shared/widgets/status_bar.dart';
+import '../moments/moment_detail_screen.dart';
+import '../moments/moments_screen.dart';
+import '../moments/widgets/moment_art.dart';
+import '../room_setup/room_setup_screen.dart';
 import '../settings/settings_screen.dart';
 import 'pet_profile_screen.dart';
 import 'widgets/chat_dialogue_area.dart';
 import 'widgets/pet_stage.dart';
 
-class PetRoomScreen extends StatelessWidget {
+class PetRoomScreen extends StatefulWidget {
   const PetRoomScreen({required this.controller, super.key});
+
+  final PetPalController controller;
+
+  @override
+  State<PetRoomScreen> createState() => _PetRoomScreenState();
+}
+
+class _PetRoomScreenState extends State<PetRoomScreen> {
+  String? _shownAwayHistoryId;
+  Timer? _awayDialogTimer;
+
+  @override
+  void dispose() {
+    _awayDialogTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final event = controller.pendingAwayEvent;
+    if (event != null && _shownAwayHistoryId != event.history.historyId) {
+      _shownAwayHistoryId = event.history.historyId;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _awayDialogTimer?.cancel();
+        _awayDialogTimer = Timer(const Duration(milliseconds: 300), () {
+          if (!mounted || controller.pendingAwayEvent == null) return;
+          _showAwayDialog(context, controller);
+        });
+      });
+    }
+
+    return _PetRoomView(controller: controller);
+  }
+}
+
+class _PetRoomView extends StatelessWidget {
+  const _PetRoomView({required this.controller});
 
   final PetPalController controller;
 
@@ -99,6 +145,24 @@ class PetRoomScreen extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     IconButton.filled(
+                      tooltip: 'Moments',
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          petPalRoute(
+                            builder: (_) =>
+                                MomentsScreen(controller: controller),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Pixel.heart),
+                      style: IconButton.styleFrom(
+                        backgroundColor:
+                            PetPalColors.ink.withValues(alpha: 0.78),
+                        foregroundColor: const Color(0xFFF3E4C4),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filled(
                       onPressed: () {
                         Navigator.of(context).push(
                           petPalRoute(
@@ -118,7 +182,7 @@ class PetRoomScreen extends StatelessWidget {
                 ),
               ),
               Positioned(
-                top: 140,
+                top: 104,
                 left: 16,
                 width: 190,
                 child: GestureDetector(
@@ -154,6 +218,11 @@ class PetRoomScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              Positioned(
+                top: 104,
+                right: 14,
+                child: _RoomSetupEntry(controller: controller),
+              ),
               if (controller.roomNotice != null)
                 Positioned(
                   top: 92,
@@ -164,6 +233,9 @@ class PetRoomScreen extends StatelessWidget {
               // The pet wanders the floor, naps, and reacts to taps; its speech
               // bubble follows it. Fills the stage but only the pet body is
               // tappable, so the bars above/below stay interactive.
+              Positioned.fill(
+                child: _PlacedRoomItemsLayer(controller: controller),
+              ),
               Positioned.fill(child: PetStage(controller: controller)),
               // Chat mode only: the user's latest message floats above the input
               // box (spec 3.3 / 2.2).
@@ -292,6 +364,403 @@ void _showStatusDetails(BuildContext context, PetPalController controller) {
       );
     },
   );
+}
+
+Future<void> _showAwayDialog(
+  BuildContext context,
+  PetPalController controller,
+) async {
+  final initialEvent = controller.pendingAwayEvent;
+  if (initialEvent == null) return;
+  final roomContext = context;
+
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) {
+          final event = controller.pendingAwayEvent ?? initialEvent;
+          return Dialog(
+            insetPadding: const EdgeInsets.all(18),
+            backgroundColor: Colors.transparent,
+            child: PixelCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'While you were away...',
+                          style: TextStyle(
+                            color: PetPalColors.bark,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          controller.dismissAwayEvent();
+                          Navigator.of(dialogContext).pop();
+                        },
+                        icon: const Icon(Pixel.close),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  MomentArt(
+                    id: event.imageKey ?? event.config.eventId,
+                    title: event.title,
+                    imageUrl: event.imageUrl,
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    event.title,
+                    style: const TextStyle(
+                      color: PetPalColors.bark,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    event.body,
+                    style: const TextStyle(
+                      color: PetPalColors.cocoa,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      height: 1.28,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  if (event.rewardLabels.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final label in event.rewardLabels)
+                          _RewardChip(label: label),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  if (event.canSaveMoment)
+                    PixelButton(
+                      label: controller.awayEventSaving
+                          ? 'Saving...'
+                          : 'Save Moment',
+                      enabled: !controller.awayEventSaving,
+                      onPressed: () async {
+                        final record = await controller.savePendingMoment();
+                        if (!dialogContext.mounted) return;
+                        Navigator.of(dialogContext).pop();
+                        if (record != null && roomContext.mounted) {
+                          Navigator.of(roomContext).push(
+                            petPalRoute(
+                              builder: (_) => MomentDetailScreen(
+                                controller: controller,
+                                record: record,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  if (event.canSaveMoment) const SizedBox(height: 10),
+                  PixelButton(
+                    label: 'Back Home',
+                    secondary: true,
+                    onPressed: () {
+                      controller.dismissAwayEvent();
+                      Navigator.of(dialogContext).pop();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
+class _RewardChip extends StatelessWidget {
+  const _RewardChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: PetPalColors.honey.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: PetPalColors.line, width: 1.5),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: PetPalColors.bark,
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0,
+        ),
+      ),
+    );
+  }
+}
+
+class _RoomSetupEntry extends StatelessWidget {
+  const _RoomSetupEntry({required this.controller});
+
+  final PetPalController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 54,
+      height: 54,
+      child: IconButton.filled(
+        tooltip: 'Set Up Room',
+        onPressed: () {
+          Navigator.of(context).push(
+            petPalRoute(
+              builder: (_) => RoomSetupScreen(controller: controller),
+            ),
+          );
+        },
+        icon: const Icon(Pixel.edit),
+        style: IconButton.styleFrom(
+          backgroundColor: PetPalColors.ink.withValues(alpha: 0.78),
+          foregroundColor: const Color(0xFFF3E4C4),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlacedRoomItemsLayer extends StatelessWidget {
+  const _PlacedRoomItemsLayer({required this.controller});
+
+  static const Size _backgroundSize = Size(941, 1672);
+  static const Map<String, _RoomItemPlacement> _placements = {
+    'window_cushion': _RoomItemPlacement(
+      imageX: 170,
+      imageBottomY: 935,
+      imageWidth: 190,
+      aspectRatio: 558 / 961,
+      shadowWidth: 0.82,
+      shadowHeight: 0.10,
+      shadowOffsetX: 0,
+      shadowOffsetY: 0.90,
+      shadowOpacity: 0.27,
+      shadowBlur: 17,
+    ),
+    'cat_box': _RoomItemPlacement(
+      imageX: 760,
+      imageBottomY: 1300,
+      imageWidth: 210,
+      aspectRatio: 846 / 871,
+      shadowWidth: 0.82,
+      shadowHeight: 0.12,
+      shadowOffsetX: 0.06,
+      shadowOffsetY: 0.88,
+      shadowOpacity: 0.30,
+      shadowBlur: 20,
+    ),
+    'food_bowl': _RoomItemPlacement(
+      imageX: 170,
+      imageBottomY: 1488,
+      imageWidth: 210,
+      aspectRatio: 630 / 837,
+      shadowWidth: 0.78,
+      shadowHeight: 0.14,
+      shadowOffsetX: 0.08,
+      shadowOffsetY: 0.86,
+      shadowOpacity: 0.27,
+      shadowBlur: 22,
+    ),
+    'toy_ball': _RoomItemPlacement(
+      imageX: 420,
+      imageBottomY: 1490,
+      imageWidth: 80,
+      aspectRatio: 684 / 629,
+      shadowWidth: 0.70,
+      shadowHeight: 0.16,
+      shadowOffsetX: 0.04,
+      shadowOffsetY: 0.85,
+      shadowOpacity: 0.26,
+      shadowBlur: 13,
+    ),
+    'soft_blanket': _RoomItemPlacement(
+      imageX: 760,
+      imageBottomY: 1492,
+      imageWidth: 270,
+      aspectRatio: 624 / 1024,
+      shadowWidth: 0.86,
+      shadowHeight: 0.15,
+      shadowOffsetX: 0.02,
+      shadowOffsetY: 0.86,
+      shadowOpacity: 0.26,
+      shadowBlur: 22,
+    ),
+  };
+
+  final PetPalController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = controller.placedRoomItems;
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final media = MediaQuery.of(context);
+          final fullWidth = constraints.maxWidth;
+          final fullHeight =
+              constraints.maxHeight + media.padding.top + media.padding.bottom;
+          final scale = math.max(
+            fullWidth / _backgroundSize.width,
+            fullHeight / _backgroundSize.height,
+          );
+          final offsetX = (fullWidth - _backgroundSize.width * scale) / 2;
+          final offsetY = (fullHeight - _backgroundSize.height * scale) / 2 -
+              media.padding.top;
+          final visibleItems = <_PlacedRoomItem>[
+            for (final item in items)
+              if (_placements.containsKey(item.itemId))
+                _PlacedRoomItem(
+                  asset: _assetForItem(
+                    item.itemId,
+                    item.defaultRoomAssetUrl,
+                  ),
+                  placement: _placements[item.itemId]!,
+                  scale: scale,
+                  offsetX: offsetX,
+                  offsetY: offsetY,
+                ),
+          ]..sort(
+              (a, b) => a.placement.imageBottomY.compareTo(
+                b.placement.imageBottomY,
+              ),
+            );
+          return Stack(children: visibleItems);
+        },
+      ),
+    );
+  }
+
+  static String _assetForItem(String itemId, String? configuredAsset) {
+    if (configuredAsset != null && configuredAsset.startsWith('assets/')) {
+      return configuredAsset;
+    }
+    return AppAssets.roomItemAssetFor(itemId)!;
+  }
+}
+
+class _PlacedRoomItem extends StatelessWidget {
+  const _PlacedRoomItem({
+    required this.asset,
+    required this.placement,
+    required this.scale,
+    required this.offsetX,
+    required this.offsetY,
+  });
+
+  final String asset;
+  final _RoomItemPlacement placement;
+  final double scale;
+  final double offsetX;
+  final double offsetY;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = placement.imageWidth * scale;
+    final height = width * placement.aspectRatio;
+    final centerX = offsetX + placement.imageX * scale;
+    final bottomY = offsetY + placement.imageBottomY * scale;
+    final shadowWidth = width * placement.shadowWidth;
+    final shadowHeight = height * placement.shadowHeight;
+    final shadowLeft =
+        (width - shadowWidth) / 2 + width * placement.shadowOffsetX;
+    final shadowTop = height * placement.shadowOffsetY - shadowHeight / 2;
+    return Positioned(
+      left: centerX - width / 2,
+      top: bottomY - height,
+      width: width,
+      height: height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: shadowLeft,
+            top: shadowTop,
+            width: shadowWidth,
+            height: shadowHeight,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFF5F3518)
+                    .withValues(alpha: placement.shadowOpacity),
+                borderRadius: BorderRadius.circular(shadowHeight),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF5F3518).withValues(
+                      alpha: placement.shadowOpacity * 0.72,
+                    ),
+                    blurRadius: placement.shadowBlur * scale,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Image.asset(
+              asset,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.none,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoomItemPlacement {
+  const _RoomItemPlacement({
+    required this.imageX,
+    required this.imageBottomY,
+    required this.imageWidth,
+    required this.aspectRatio,
+    required this.shadowWidth,
+    required this.shadowHeight,
+    required this.shadowOffsetX,
+    required this.shadowOffsetY,
+    required this.shadowOpacity,
+    required this.shadowBlur,
+  });
+
+  final double imageX;
+  final double imageBottomY;
+  final double imageWidth;
+  final double aspectRatio;
+  final double shadowWidth;
+  final double shadowHeight;
+  final double shadowOffsetX;
+  final double shadowOffsetY;
+  final double shadowOpacity;
+  final double shadowBlur;
 }
 
 class _RoomNotice extends StatelessWidget {

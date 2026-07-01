@@ -47,10 +47,15 @@ Deno.serve(async (req) => {
       valid_chat_count_today: numberOrDefault(body?.validChatCountToday, 0),
       affinity_gain_today: numberOrDefault(body?.affinityGainToday, 0),
       return_tip_show_count_today: numberOrDefault(body?.returnTipShowCountToday, 0),
+      offline_event_show_count_today: numberOrDefault(body?.offlineEventShowCountToday, 0),
+      shown_event_ids_today: stringArrayOrDefault(body?.shownEventIdsToday),
+      placed_item_ids: stringArrayOrDefault(body?.placedItemIds),
       daily_first_feed_done: booleanOrDefault(body?.dailyFirstFeedDone, false),
       daily_first_caress_done: booleanOrDefault(body?.dailyFirstCaressDone, false),
       daily_chat_affinity_done: booleanOrDefault(body?.dailyChatAffinityDone, false),
       daily_first_return_done: booleanOrDefault(body?.dailyFirstReturnDone, false),
+      last_offline_event_at: nullableTimestamp(body?.lastOfflineEventAt),
+      last_room_item_update_at: nullableTimestamp(body?.lastRoomItemUpdateAt),
       last_active_at: new Date().toISOString(),
     };
 
@@ -93,6 +98,10 @@ function booleanOrDefault(value: unknown, fallback: boolean) {
 
 function stringOrDefault(value: unknown, fallback: string) {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function stringArrayOrDefault(value: unknown) {
+  return Array.isArray(value) ? value.filter((item) => typeof item === 'string') : [];
 }
 
 function nullableTimestamp(value: unknown) {

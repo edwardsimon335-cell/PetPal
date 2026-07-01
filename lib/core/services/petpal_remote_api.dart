@@ -2,6 +2,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../shared/models/pet_profile.dart';
+import '../../shared/models/petpal_v12_models.dart';
 import 'petpal_backend.dart';
 
 class PetPalRemoteApi {
@@ -116,10 +117,15 @@ class PetPalRemoteApi {
     int? validChatCountToday,
     int? affinityGainToday,
     int? returnTipShowCountToday,
+    int? offlineEventShowCountToday,
+    List<String>? shownEventIdsToday,
+    List<String>? placedItemIds,
     bool? dailyFirstFeedDone,
     bool? dailyFirstCaressDone,
     bool? dailyChatAffinityDone,
     bool? dailyFirstReturnDone,
+    DateTime? lastOfflineEventAt,
+    DateTime? lastRoomItemUpdateAt,
   }) async {
     await _client.functions.invoke(
       'update-pet-status',
@@ -148,6 +154,11 @@ class PetPalRemoteApi {
         if (affinityGainToday != null) 'affinityGainToday': affinityGainToday,
         if (returnTipShowCountToday != null)
           'returnTipShowCountToday': returnTipShowCountToday,
+        if (offlineEventShowCountToday != null)
+          'offlineEventShowCountToday': offlineEventShowCountToday,
+        if (shownEventIdsToday != null)
+          'shownEventIdsToday': shownEventIdsToday,
+        if (placedItemIds != null) 'placedItemIds': placedItemIds,
         if (dailyFirstFeedDone != null)
           'dailyFirstFeedDone': dailyFirstFeedDone,
         if (dailyFirstCaressDone != null)
@@ -156,8 +167,94 @@ class PetPalRemoteApi {
           'dailyChatAffinityDone': dailyChatAffinityDone,
         if (dailyFirstReturnDone != null)
           'dailyFirstReturnDone': dailyFirstReturnDone,
+        if (lastOfflineEventAt != null)
+          'lastOfflineEventAt': lastOfflineEventAt.toIso8601String(),
+        if (lastRoomItemUpdateAt != null)
+          'lastRoomItemUpdateAt': lastRoomItemUpdateAt.toIso8601String(),
       },
     );
+  }
+
+  Future<void> saveOfflineEventHistory({
+    required String petId,
+    required OfflineEventHistory history,
+  }) async {
+    await _client.functions.invoke(
+      'record-offline-event',
+      body: {
+        'petId': petId,
+        'history': history.toJson(),
+      },
+    );
+  }
+
+  Future<void> saveMomentRecord({
+    required String petId,
+    required UserMomentRecord record,
+    required OfflineEventHistory history,
+  }) async {
+    await _client.functions.invoke(
+      'save-moment',
+      body: {
+        'petId': petId,
+        'record': record.toJson(),
+        'historyId': history.historyId,
+      },
+    );
+  }
+
+  Future<void> deleteMomentRecord({
+    required String petId,
+    required String momentRecordId,
+    required DateTime deletedAt,
+  }) async {
+    await _client.functions.invoke(
+      'delete-moment',
+      body: {
+        'petId': petId,
+        'momentRecordId': momentRecordId,
+        'deletedAt': deletedAt.toIso8601String(),
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> generateMomentImage({
+    required String petId,
+    required PetProfile pet,
+    required OfflineEventConfig event,
+    required MomentConfig moment,
+    required String title,
+    required String body,
+    required String diaryText,
+    String? pendingId,
+  }) async {
+    final response = await _client.functions.invoke(
+      'generate-moment-image',
+      body: {
+        'petId': petId,
+        'pendingId': pendingId,
+        'eventId': event.eventId,
+        'eventType': event.eventType,
+        'momentId': moment.momentId,
+        'momentType': moment.momentType,
+        'imageKey': event.imageKey,
+        'title': title,
+        'body': body,
+        'diaryText': diaryText,
+        'petName': pet.name,
+        'roleId': pet.role.id,
+        'species': pet.role.species,
+        'sourceType': pet.sourceType == PetSourceType.presetRole
+            ? 'preset_role'
+            : 'uploaded_photo',
+        'personalityTags': pet.traits,
+        'specialPersonalityDetail': pet.specialPersonalityDetail,
+        'avatarUrl': pet.avatarUrl,
+        'sourcePhotoPath': pet.sourcePhotoPath,
+        'placedItemIds': pet.placedItemIds,
+      },
+    );
+    return Map<String, dynamic>.from(response.data as Map);
   }
 
   Map<String, dynamic> _statusPayload(PetProfile pet) {
@@ -181,10 +278,15 @@ class PetPalRemoteApi {
       'validChatCountToday': pet.validChatCountToday,
       'affinityGainToday': pet.affinityGainToday,
       'returnTipShowCountToday': pet.returnTipShowCountToday,
+      'offlineEventShowCountToday': pet.offlineEventShowCountToday,
+      'shownEventIdsToday': pet.shownEventIdsToday,
+      'placedItemIds': pet.placedItemIds,
       'dailyFirstFeedDone': pet.dailyFirstFeedDone,
       'dailyFirstCaressDone': pet.dailyFirstCaressDone,
       'dailyChatAffinityDone': pet.dailyChatAffinityDone,
       'dailyFirstReturnDone': pet.dailyFirstReturnDone,
+      'lastOfflineEventAt': pet.lastOfflineEventAt?.toIso8601String(),
+      'lastRoomItemUpdateAt': pet.lastRoomItemUpdateAt?.toIso8601String(),
       'localDate': petLocalDateKey(DateTime.now()),
     };
   }
